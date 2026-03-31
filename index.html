@@ -232,7 +232,7 @@ function parseExcel(arrayBuffer){
   const toArr=(name,headerRow)=>{const ws=wb.Sheets[name];if(!ws)return[];return XLSX.utils.sheet_to_json(ws,{range:headerRow||0,defval:''});};
 
   DATA.localPurchases = toArr('Local Purchases').filter(r=>r['Division']).map((r,i)=>({
-    id:'LP-'+i, division:r['Division']||'', jobCode:r['Project / Job Code']||'', projectName:r['Project Name']||'',
+    id:'LP-'+i, division:r['Division']||'', jobCode:r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'', projectName:r['Project Name']||'',
     prNumber:r['PR Number']||'', item:r['Item Description']||'', requestedBy:r['Requested By']||'',
     dateRaised:formatDate(r['Date Raised']), category:r['Category']||'', priority:r['Priority']||'Normal',
     estimatedValue:num(r['Estimated Value (BHD)']), stage:r['Current Stage']||'',
@@ -243,7 +243,7 @@ function parseExcel(arrayBuffer){
   }));
 
   DATA.intlPurchases = toArr('International Purchases').filter(r=>r['Division']).map((r,i)=>({
-    id:'IP-'+i, division:r['Division']||'', jobCode:r['Project / Job Code']||'', projectName:r['Project Name']||'',
+    id:'IP-'+i, division:r['Division']||'', jobCode:r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'', projectName:r['Project Name']||'',
     prNumber:r['PR Number']||'', item:r['Item Description']||'', requestedBy:r['Requested By']||'',
     dateRaised:formatDate(r['Date Raised']), category:r['Category']||'', priority:r['Priority']||'Normal',
     estimatedValue:num(r['Estimated Value (USD)']), stage:r['Current Stage']||'',
@@ -262,7 +262,7 @@ function parseExcel(arrayBuffer){
           otherCharges=num(r['Other Charges (BHD)']);
     const totalClearing=num(r['Total Clearing Cost (BHD)'])||(customsDuty+vat+doCharges+freight+thc+demurrage+otherCharges);
     return {
-      id:'SH-'+i, division:r['Division']||'', jobCode:r['Project / Job Code']||'', projectName:r['Project Name']||'',
+      id:'SH-'+i, division:r['Division']||'', jobCode:r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'', projectName:r['Project Name']||'',
       direction:r['Direction']||'Import', poRef:r['PO Reference']||'', supplier:r['Supplier / Consignee']||'',
       country:r['Country']||'', item:r['Item Description']||'', incoterms:r['Incoterms']||'',
       originPort:r['Origin Port / City']||'', destPort:r['Destination Port / City']||'',
@@ -280,7 +280,7 @@ function parseExcel(arrayBuffer){
   });
 
   DATA.escalations = toArr('Escalations & Blockers').filter(r=>r['Division']).map((r,i)=>({
-    id:'ESC-'+i, division:r['Division']||'', jobCode:r['Project / Job Code']||'', projectName:r['Project Name']||'',
+    id:'ESC-'+i, division:r['Division']||'', jobCode:r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'', projectName:r['Project Name']||'',
     reference:r['Reference (PR/PO/Shipment)']||'', type:r['Type']||'',
     description:r['Description of Issue']||'', impact:r['Impact Level']||'',
     owner:r['Owner / Responsible']||'', actionRequired:r['Action Required']||'',
