@@ -716,21 +716,28 @@ function renderLocal(data,isCon){
   // Charts
   if(data.length>0){
     h+='<div class="charts-row">';
-    // Spend by stage
-    const lStageColors={'PR Raised':'#4e6580','Pending Approval':'#d4891a','Approved':'#2d6fd4','RFQ / Quotation':'#0891b2','PO Issued':'#6148c5','Delivery Pending':'#c0612e','Closed / Completed':'#0d9e80'};
-    const lStages=Object.keys(lStageColors);
-    const lStageCounts=lStages.map(s=>data.filter(d=>d.stage===s).length);
-    const lStageVals=lStages.map(s=>data.filter(d=>d.stage===s).reduce((sum,d)=>sum+(d.estimatedValue||0),0));
-    const lNonZero=lStages.map((_,i)=>i).filter(i=>lStageCounts[i]>0);
-    h+='<div class="chart-wrap"><div class="chart-title">Spend by Stage (BHD)</div><div style="height:200px;position:relative"><canvas id="chart-local-stage"></canvas></div></div>';
-    queueChart('chart-local-stage',{type:'bar',data:{labels:lNonZero.map(i=>lStages[i]),datasets:[{label:'Value (BHD)',data:lNonZero.map(i=>lStageVals[i]),backgroundColor:lNonZero.map(i=>lStageColors[lStages[i]]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Value: BHD '+fmtNum(ctx.raw),' Items: '+lStageCounts[lNonZero[ctx.dataIndex]]]}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
-    // Spend by category
-    const lCats=[...new Set(data.map(d=>d.category).filter(Boolean))].sort();
+    const CHART_PALETTE=['#2d6fd4','#0d9e80','#d4891a','#b83232','#6148c5','#0891b2','#c0612e','#14784a','#a8306e','#0c7fb8','#4e6580','#1a9e55'];
+    // Items by stage — fully data-driven
+    const lStageMap={};data.forEach(d=>{if(d.stage){lStageMap[d.stage]=lStageMap[d.stage]||{count:0,val:0};lStageMap[d.stage].count++;lStageMap[d.stage].val+=(d.estimatedValue||0);}});
+    const lStages=Object.keys(lStageMap).sort((a,b)=>lStageMap[b].count-lStageMap[a].count);
+    if(lStages.length>0){
+      h+='<div class="chart-wrap"><div class="chart-title">PRs by Stage</div><div style="height:200px;position:relative"><canvas id="chart-local-stage"></canvas></div></div>';
+      queueChart('chart-local-stage',{type:'bar',data:{labels:lStages,datasets:[{label:'Items',data:lStages.map(s=>lStageMap[s].count),backgroundColor:lStages.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: BHD '+fmtNum(lStageMap[lStages[ctx.dataIndex]].val)]}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898',stepSize:1},grid:{color:'#1a2f46'}}}}});
+    }
+    // Items by category — fully data-driven
+    const lCatMap={};data.forEach(d=>{if(d.category)lCatMap[d.category]=(lCatMap[d.category]||0)+1;});
+    const lCats=Object.keys(lCatMap).sort((a,b)=>lCatMap[b]-lCatMap[a]);
     if(lCats.length>0){
-      const lCatVals=lCats.map(c=>data.filter(d=>d.category===c).reduce((s,d)=>s+(d.estimatedValue||0),0));
-      const catColors=['#2d6fd4','#0d9e80','#c0612e','#6148c5','#b83232','#0891b2','#d4891a','#a8306e'];
-      h+='<div class="chart-wrap"><div class="chart-title">Spend by Category (BHD)</div><div style="height:200px;position:relative"><canvas id="chart-local-cat"></canvas></div></div>';
-      queueChart('chart-local-cat',{type:'doughnut',data:{labels:lCats,datasets:[{data:lCatVals,backgroundColor:catColors.slice(0,lCats.length),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#dce8f5',font:{size:10},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>[' '+ctx.label+': BHD '+fmtNum(ctx.raw)]}}}}});
+      h+='<div class="chart-wrap"><div class="chart-title">PRs by Category</div><div style="height:200px;position:relative"><canvas id="chart-local-cat"></canvas></div></div>';
+      queueChart('chart-local-cat',{type:'doughnut',data:{labels:lCats,datasets:[{data:lCats.map(c=>lCatMap[c]),backgroundColor:lCats.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#dce8f5',font:{size:10},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>[' '+ctx.label+': '+ctx.raw+' items']}}}}});
+    }
+    // Items by priority — fully data-driven
+    const lPriMap={};data.forEach(d=>{if(d.priority)lPriMap[d.priority]=(lPriMap[d.priority]||0)+1;});
+    const lPris=Object.keys(lPriMap);
+    if(lPris.length>0){
+      const priColors={'Urgent':'#b83232','High':'#c0612e','Normal':'#2d6fd4','Low':'#4e6580'};
+      h+='<div class="chart-wrap"><div class="chart-title">PRs by Priority</div><div style="height:200px;position:relative"><canvas id="chart-local-pri"></canvas></div></div>';
+      queueChart('chart-local-pri',{type:'doughnut',data:{labels:lPris,datasets:[{data:lPris.map(p=>lPriMap[p]),backgroundColor:lPris.map(p=>priColors[p]||'#4e6580'),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#dce8f5',font:{size:10},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>[' '+ctx.label+': '+ctx.raw+' items']}}}}});
     }
     h+='</div>';
   }
@@ -776,21 +783,27 @@ function renderIntl(data,isCon){
   // Charts
   if(data.length>0){
     h+='<div class="charts-row">';
-    // Spend by stage
-    const iStageColors={'PR Raised':'#4e6580','Pending Approval':'#d4891a','Approved':'#6148c5','Supplier Selected':'#2d6fd4','PO Issued':'#0891b2','Production / Manufacturing':'#a8306e','Ready to Ship':'#0c7fb8','In Transit (Sea/Air)':'#0d9e80','Arrived at Port':'#1a9e55','Customs Clearance':'#d4891a','Released / Delivered':'#14784a','Closed / Completed':'#4e6580'};
-    const iStages=Object.keys(iStageColors);
-    const iStageCounts=iStages.map(s=>data.filter(d=>d.stage===s).length);
-    const iStageVals=iStages.map(s=>data.filter(d=>d.stage===s).reduce((sum,d)=>sum+(d.estimatedValue||0),0));
-    const iNonZero=iStages.map((_,i)=>i).filter(i=>iStageCounts[i]>0);
-    h+='<div class="chart-wrap"><div class="chart-title">Spend by Stage (USD)</div><div style="height:200px;position:relative"><canvas id="chart-intl-stage"></canvas></div></div>';
-    queueChart('chart-intl-stage',{type:'bar',data:{labels:iNonZero.map(i=>iStages[i]),datasets:[{label:'Value (USD)',data:iNonZero.map(i=>iStageVals[i]),backgroundColor:iNonZero.map(i=>iStageColors[iStages[i]]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Value: $'+fmtNum(ctx.raw),' Items: '+iStageCounts[iNonZero[ctx.dataIndex]]]}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
-    // Spend by country
-    const iCountries=[...new Set(data.map(d=>d.country).filter(Boolean))].sort();
+    const CHART_PALETTE=['#2d6fd4','#0d9e80','#d4891a','#b83232','#6148c5','#0891b2','#c0612e','#14784a','#a8306e','#0c7fb8','#4e6580','#1a9e55'];
+    // Items by stage — fully data-driven
+    const iStageMap={};data.forEach(d=>{if(d.stage){iStageMap[d.stage]=iStageMap[d.stage]||{count:0,val:0};iStageMap[d.stage].count++;iStageMap[d.stage].val+=(d.estimatedValue||0);}});
+    const iStages=Object.keys(iStageMap).sort((a,b)=>iStageMap[b].count-iStageMap[a].count);
+    if(iStages.length>0){
+      h+='<div class="chart-wrap"><div class="chart-title">POs by Stage</div><div style="height:200px;position:relative"><canvas id="chart-intl-stage"></canvas></div></div>';
+      queueChart('chart-intl-stage',{type:'bar',data:{labels:iStages,datasets:[{label:'Items',data:iStages.map(s=>iStageMap[s].count),backgroundColor:iStages.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: $'+fmtNum(iStageMap[iStages[ctx.dataIndex]].val)]}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898',stepSize:1},grid:{color:'#1a2f46'}}}}});
+    }
+    // Items by country — fully data-driven
+    const iCtyMap={};data.forEach(d=>{if(d.country)iCtyMap[d.country]=(iCtyMap[d.country]||0)+1;});
+    const iCountries=Object.keys(iCtyMap).sort((a,b)=>iCtyMap[b]-iCtyMap[a]);
     if(iCountries.length>0){
-      const iCountryVals=iCountries.map(c=>data.filter(d=>d.country===c).reduce((s,d)=>s+(d.estimatedValue||0),0));
-      const ctrColors=['#c0612e','#6148c5','#0d9e80','#2d6fd4','#b83232','#0891b2','#d4891a','#a8306e'];
-      h+='<div class="chart-wrap"><div class="chart-title">Spend by Country (USD)</div><div style="height:200px;position:relative"><canvas id="chart-intl-country"></canvas></div></div>';
-      queueChart('chart-intl-country',{type:'doughnut',data:{labels:iCountries,datasets:[{data:iCountryVals,backgroundColor:ctrColors.slice(0,iCountries.length),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#dce8f5',font:{size:10},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>[' '+ctx.label+': $'+fmtNum(ctx.raw)]}}}}});
+      h+='<div class="chart-wrap"><div class="chart-title">POs by Supplier Country</div><div style="height:200px;position:relative"><canvas id="chart-intl-country"></canvas></div></div>';
+      queueChart('chart-intl-country',{type:'doughnut',data:{labels:iCountries,datasets:[{data:iCountries.map(c=>iCtyMap[c]),backgroundColor:iCountries.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#dce8f5',font:{size:10},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>[' '+ctx.label+': '+ctx.raw+' items']}}}}});
+    }
+    // Items by payment status — fully data-driven
+    const iPmtMap={};data.forEach(d=>{if(d.paymentStatus)iPmtMap[d.paymentStatus]=(iPmtMap[d.paymentStatus]||0)+1;});
+    const iPmts=Object.keys(iPmtMap);
+    if(iPmts.length>0){
+      h+='<div class="chart-wrap"><div class="chart-title">POs by Payment Status</div><div style="height:200px;position:relative"><canvas id="chart-intl-pmt"></canvas></div></div>';
+      queueChart('chart-intl-pmt',{type:'doughnut',data:{labels:iPmts,datasets:[{data:iPmts.map(p=>iPmtMap[p]),backgroundColor:iPmts.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#dce8f5',font:{size:10},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>[' '+ctx.label+': '+ctx.raw+' items']}}}}});
     }
     h+='</div>';
   }
