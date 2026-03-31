@@ -195,7 +195,7 @@ select{padding:5px 10px;border-radius:6px;border:1px solid var(--border-color);b
 // ═══════════════════════════════════════════════
 const DIVISIONS = ["Consolidated View","Delmon Furniture Factory","Motor & Marine Division","Home Appliances Distribution","Home Appliances Service Center","Tire & Allied Business","AJK Unity","Pearl Craft"];
 const PROJECT_DIVISIONS = ["Delmon Furniture Factory","AJK Unity","Pearl Craft"];
-const LOCAL_STAGES = ["PR Received","Sourcing / Quotation","Pending Approval","PO Issued","Supplier Confirmation","In Transit / Out for Delivery","Received at Warehouse","Closed / Completed"];
+const LOCAL_STAGES = ["PR Received","Sourcing / Quotation","Pending Approval","PO Issued","Supplier Confirmation","In Transit / Out for Delivery","Received at Warehouse","Closed / Completed","Cancelled"];
 const INTL_STAGES = ["PR Received","Sourcing / Quotation","Pending Approval","PO Issued","Supplier Confirmation / PI Received","Payment Processing","Production / Manufacturing","Ready for Shipment","Booking & Documentation","In Transit (Sea/Air)","Arrived at Port / Airport","Customs Clearance","Released & In Transit to Warehouse","Received at Warehouse","Closed / Completed"];
 const INCOTERMS_LIST = ["EXW","FOB","CIF","CFR","DDP","DAP","FCA","CPT","CIP"];
 const STAGE_COLORS = {"PR Received":"#6366f1","Sourcing / Quotation":"#6148c5","Pending Approval":"#d4891a","PO Issued":"#2d6fd4","Supplier Confirmation":"#0891b2","Supplier Confirmation / PI Received":"#0891b2","Payment Processing":"#c0612e","Production / Manufacturing":"#6148c5","Ready for Shipment":"#14b8a6","Booking & Documentation":"#4e6580","In Transit / Out for Delivery":"#0d9e80","In Transit (Sea/Air)":"#0d9e80","Arrived at Port / Airport":"#0c7fb8","Customs Clearance":"#d4891a","Released & In Transit to Warehouse":"#1a9e55","Received at Warehouse":"#14784a","Closed / Completed":"#4e6580"};
@@ -204,7 +204,7 @@ const IMPACT_COLORS = {Critical:"#b83232",High:"#c0612e",Medium:"#d4891a",Low:"#
 // ═══════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════
-let DATA = {localPurchases:[],intlPurchases:[],shipments:[],escalations:[]};
+let DATA = {localPurchases:[],intlPurchases:[],shipments:[],escalations:[],deliveries:[],shipmentItems:[]};
 let activeDivision = "Consolidated View";
 let activeTab = "overview";
 let projectFilter = "All";
@@ -238,8 +238,25 @@ function parseExcel(arrayBuffer){
     estimatedValue:num(r['Estimated Value (BHD)']), stage:r['Current Stage']||'',
     buyer:r['Assigned Buyer']||'', supplier:r['Supplier Name']||'',
     poNumber:r['PO Number']||'', poValue:num(r['PO Value (BHD)']),
+    paymentTerms:r['Payment Terms']||'',
     expectedDelivery:formatDate(r['Expected Delivery Date']),
-    daysInStage:num(r['Days in Current Stage']), remarks:r['Remarks / Blockers']||''
+    daysInStage:num(r['Days in Current Stage']), remarks:r['Remarks / Blockers']||'',
+    cancellationReason:r['Cancellation Reason']||''
+  }));
+
+  DATA.deliveries = toArr('Deliveries').filter(r=>r['LPO Reference']).map((r,i)=>({
+    id:'DEL-'+i, lpoRef:r['LPO Reference']||'', deliveryNum:r['Delivery #']||'',
+    division:r['Division']||'', deliveryDate:formatDate(r['Delivery Date']),
+    items:r['Items Description']||'', qtyDelivered:num(r['Qty Delivered']),
+    status:r['Status']||'', remarks:r['Remarks']||''
+  }));
+
+  DATA.shipmentItems = toArr('Shipment Items').filter(r=>r['BL / AWB Ref']).map((r,i)=>({
+    id:'SI-'+i, blRef:r['BL / AWB Ref']||'', item:r['Item Description']||'',
+    projectCode:r['Project Code']!=null&&r['Project Code']!==''?String(r['Project Code']):'',
+    qty:num(r['Qty']), unitValue:num(r['Unit Value (USD)']), totalValue:num(r['Total Value (USD)']),
+    costAllocation:num(r['Cost Allocation %']),
+    customsAllocation:num(r['Customs Allocation (BHD)']), freightAllocation:num(r['Freight Allocation (BHD)'])
   }));
 
   DATA.intlPurchases = toArr('International Purchases').filter(r=>r['Division']).map((r,i)=>({
@@ -256,7 +273,7 @@ function parseExcel(arrayBuffer){
   }));
 
   DATA.shipments = toArr('Shipments Tracker',1).filter(r=>r['Division']).map((r,i)=>{
-    const customsDuty=num(r['Customs Duty (BHD)']),vat=num(r['VAT 10% (BHD)']),
+    const customsDuty=num(r['Customs Duty (BHD)']),vat=num(r['VAT (BHD)'])||num(r['VAT 10% (BHD)']),
           doCharges=num(r['DO Charges (BHD)']),freight=num(r['Freight Charges (BHD)']),
           thc=num(r['Handling / THC (BHD)']),demurrage=num(r['Demurrage / Detention (BHD)']),
           otherCharges=num(r['Other Charges (BHD)']);
@@ -705,12 +722,15 @@ function renderOverview(lp,ip,sh,es,isCon){
 // ═══════════════════════════════════════════════
 function renderLocal(data,isCon){
   const tabId='local';
-  const active=data.filter(d=>d.stage!=='Closed / Completed');
+  const cancelled=data.filter(d=>d.stage==='Cancelled');
+  const active=data.filter(d=>d.stage!=='Closed / Completed'&&d.stage!=='Cancelled');
   const aging=active.filter(d=>d.daysInStage>7);
+  const cancelledVal=cancelled.reduce((s,d)=>s+(d.estimatedValue||0),0);
   let h='<div class="grid grid-5">'+
     metricCard('','Total',data.length,'#2d6fd4')+
     metricCard('','Active',active.length,'#6148c5')+
     metricCard('','Pending Approval',data.filter(d=>d.stage==='Pending Approval').length,'#d4891a')+
+    metricCard('','Cancelled',cancelled.length,'#b83232',cancelled.length>0?'BHD '+fmtNum(cancelledVal):'')+
     metricCard('','Aging >7 Days',aging.length,'#b83232')+
     '</div>';
   h+=pipelineBar(LOCAL_STAGES,data,'stage');
@@ -740,6 +760,20 @@ function renderLocal(data,isCon){
       h+='<div class="chart-wrap"><div class="chart-title">PRs by Priority</div><div style="height:200px;position:relative"><canvas id="chart-local-pri"></canvas></div></div>';
       queueChart('chart-local-pri',{type:'bar',data:{labels:lPris,datasets:[{data:lPris.map(p=>lPriMap[p]),backgroundColor:lPris.map(p=>priColors[p]||'#4e6580'),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: BHD '+fmtNum(lPriValMap[lPris[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:11}}}}}});
     }
+    // Payment Terms chart
+    const lPtMap={};const lPtValMap={};data.forEach(d=>{if(d.paymentTerms){lPtMap[d.paymentTerms]=(lPtMap[d.paymentTerms]||0)+1;lPtValMap[d.paymentTerms]=(lPtValMap[d.paymentTerms]||0)+(d.poValue||0);}});
+    const lPts=Object.keys(lPtMap).sort((a,b)=>lPtMap[b]-lPtMap[a]);
+    if(lPts.length>0){
+      h+='<div class="chart-wrap"><div class="chart-title">POs by Payment Terms</div><div style="height:200px;position:relative"><canvas id="chart-local-pt"></canvas></div></div>';
+      queueChart('chart-local-pt',{type:'bar',data:{labels:lPts,datasets:[{data:lPts.map(p=>lPtMap[p]),backgroundColor:lPts.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' POs: '+ctx.raw,' Value: BHD '+fmtNum(lPtValMap[lPts[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
+    }
+    // Cancelled POs by reason
+    if(cancelled.length>0){
+      const lCxMap={};cancelled.forEach(d=>{const r=d.cancellationReason||'No Reason';lCxMap[r]=(lCxMap[r]||0)+1;});
+      const lCxKeys=Object.keys(lCxMap).sort((a,b)=>lCxMap[b]-lCxMap[a]);
+      h+='<div class="chart-wrap"><div class="chart-title">Cancelled POs by Reason</div><div style="height:200px;position:relative"><canvas id="chart-local-cx"></canvas></div></div>';
+      queueChart('chart-local-cx',{type:'bar',data:{labels:lCxKeys,datasets:[{data:lCxKeys.map(k=>lCxMap[k]),backgroundColor:'#b83232',borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' POs: '+ctx.raw}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
+    }
     h+='</div>';
   }
   const cols=[
@@ -758,9 +792,11 @@ function renderLocal(data,isCon){
     {key:'supplier',label:'Supplier',type:'string'},
     {key:'poNumber',label:'PO #',type:'string'},
     {key:'poValue',label:'PO Value (BHD)',type:'number',render:v=>v?fmtNum(v):''},
+    {key:'paymentTerms',label:'Payment Terms',type:'string'},
     {key:'expectedDelivery',label:'Exp. Delivery',type:'string'},
-    {key:'daysInStage',label:'Days',type:'number',render:(v,r)=>'<span style="font-weight:700;color:'+(v>7&&r.stage!=='Closed / Completed'?'#b83232':'var(--text-primary)')+'">'+v+'</span>'},
-    {key:'remarks',label:'Remarks',type:'string'}
+    {key:'daysInStage',label:'Days',type:'number',render:(v,r)=>'<span style="font-weight:700;color:'+(v>7&&r.stage!=='Closed / Completed'&&r.stage!=='Cancelled'?'#b83232':'var(--text-primary)')+'">'+v+'</span>'},
+    {key:'remarks',label:'Remarks',type:'string'},
+    {key:'cancellationReason',label:'Cancel Reason',type:'string'}
   ];
   h+=dataTable(tabId,cols,data);
   return h;
@@ -941,6 +977,55 @@ function renderShipments(shAll,shipF,isCon){
 }
 
 // ═══════════════════════════════════════════════
+// DELIVERIES
+// ═══════════════════════════════════════════════
+function renderDeliveries(data,isCon){
+  const tabId='deliveries';
+  const pending=data.filter(d=>d.status==='Pending');
+  const partial=data.filter(d=>d.status==='Partial');
+  const delivered=data.filter(d=>d.status==='Delivered');
+  let h='<div class="grid grid-5">'+
+    metricCard('','Total Deliveries',data.length,'#2d6fd4')+
+    metricCard('','Delivered',delivered.length,'#0d9e80')+
+    metricCard('','Partial',partial.length,'#d4891a')+
+    metricCard('','Pending',pending.length,'#b83232')+
+    '</div>';
+  if(data.length>0){
+    h+='<div class="charts-row">';
+    const CHART_PALETTE=['#2d6fd4','#0d9e80','#d4891a','#b83232','#6148c5','#0891b2','#c0612e','#14784a'];
+    // By status
+    const dStMap={'Pending':pending.length,'Partial':partial.length,'Delivered':delivered.length};
+    const dStColors={'Pending':'#b83232','Partial':'#d4891a','Delivered':'#0d9e80'};
+    const dStKeys=Object.keys(dStMap).filter(k=>dStMap[k]>0);
+    if(dStKeys.length>0){
+      h+='<div class="chart-wrap"><div class="chart-title">Deliveries by Status</div><div style="height:200px;position:relative"><canvas id="chart-del-status"></canvas></div></div>';
+      queueChart('chart-del-status',{type:'bar',data:{labels:dStKeys,datasets:[{data:dStKeys.map(k=>dStMap[k]),backgroundColor:dStKeys.map(k=>dStColors[k]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' Deliveries: '+ctx.raw}}},scales:{x:{ticks:{color:'#dce8f5'}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
+    }
+    // By division
+    if(isCon){
+      const dDivMap={};data.forEach(d=>{if(d.division){dDivMap[d.division]=(dDivMap[d.division]||0)+1;}});
+      const dDivs=Object.keys(dDivMap).sort((a,b)=>dDivMap[b]-dDivMap[a]);
+      if(dDivs.length>0){
+        h+='<div class="chart-wrap"><div class="chart-title">Deliveries by Division</div><div style="height:200px;position:relative"><canvas id="chart-del-div"></canvas></div></div>';
+        queueChart('chart-del-div',{type:'bar',data:{labels:dDivs,datasets:[{data:dDivs.map(d=>dDivMap[d]),backgroundColor:dDivs.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' Deliveries: '+ctx.raw}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
+      }
+    }
+    h+='</div>';
+  }
+  const cols=[
+    {key:'lpoRef',label:'LPO Ref',type:'string'},
+    {key:'deliveryNum',label:'Delivery #',type:'string'},
+    ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
+    {key:'deliveryDate',label:'Delivery Date',type:'string'},
+    {key:'items',label:'Items',type:'string'},
+    {key:'qtyDelivered',label:'Qty',type:'number'},
+    {key:'status',label:'Status',type:'string',render:v=>stageBadge(v)},
+    {key:'remarks',label:'Remarks',type:'string'}
+  ];
+  h+=dataTable(tabId,cols,data);
+  return h;
+}
+
 // ESCALATIONS
 // ═══════════════════════════════════════════════
 function renderEscalations(data,isCon){
@@ -1022,7 +1107,7 @@ function renderProjectBar(){
 function renderTabs(){
   const {es}=getFiltered();
   const openEsc=es.filter(d=>d.status!=='Resolved'&&d.status!=='Closed');
-  const tabs=[{id:'overview',label:'Overview'},{id:'local',label:'Local Purchases'},{id:'international',label:'International'},{id:'shipments',label:'Shipments'},{id:'escalations',label:'Escalations'}];
+  const tabs=[{id:'overview',label:'Overview'},{id:'local',label:'Local Purchases'},{id:'international',label:'International'},{id:'shipments',label:'Shipments'},{id:'deliveries',label:'Deliveries'},{id:'escalations',label:'Escalations'}];
   let h='';
   tabs.forEach(t=>{
     h+='<button class="tab-btn'+(t.id===activeTab?' active':'')+'" onclick="setTab(\''+t.id+'\')">'+t.label;
@@ -1036,11 +1121,13 @@ function renderContent(){
   _pendingCharts={};
   const {lp,ip,sh,shipF,es}=getFiltered();
   const isCon=activeDivision==='Consolidated View';
+  const del=filterByDiv(DATA.deliveries);
   let html='';
   if(activeTab==='overview') html=renderOverview(lp,ip,sh,es,isCon);
   else if(activeTab==='local') html=renderLocal(lp,isCon);
   else if(activeTab==='international') html=renderIntl(ip,isCon);
   else if(activeTab==='shipments') html=renderShipments(sh,shipF,isCon);
+  else if(activeTab==='deliveries') html=renderDeliveries(del,isCon);
   else if(activeTab==='escalations') html=renderEscalations(es,isCon);
   document.getElementById('dashContent').innerHTML=html;
   setTimeout(initCharts,0);
