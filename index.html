@@ -634,7 +634,7 @@ function renderOverview(lp,ip,sh,es,isCon){
     const spendTotal=activeLVal+activeIVal;
     const spendLabels=[`🟢 Local Purchases (BHD) — ${activeL.length} items`,`🟠 International Purchases (USD) — ${activeI.length} items`];
     h+='<div class="chart-wrap"><div class="chart-title">Active Spend Distribution</div><div style="height:220px;position:relative"><canvas id="chart-spend"></canvas></div></div>';
-    queueChart('chart-spend',{type:'doughnut',data:{labels:spendLabels,datasets:[{data:[activeLVal,activeIVal],backgroundColor:['#0d9e80','#c0612e'],hoverBackgroundColor:['#00c890','#d4803e'],borderWidth:3,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#dce8f5',font:{size:11},padding:14,boxWidth:12}},tooltip:{callbacks:{label:ctx=>{const pct=spendTotal>0?(ctx.raw/spendTotal*100).toFixed(1):'0';return[` Value: ${fmtNum(ctx.raw)}`,' Share: '+pct+'%'];}}}}}});
+    queueChart('chart-spend',{type:'bar',data:{labels:['Local Purchases (BHD)','International (USD)'],datasets:[{data:[activeLVal,activeIVal],backgroundColor:['#0d9e80','#c0612e'],borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const pct=spendTotal>0?(ctx.raw/spendTotal*100).toFixed(1):'0';return[` Value: ${fmtNum(ctx.raw)}`,' Items: '+(ctx.dataIndex===0?activeL.length:activeI.length),' Share: '+pct+'%'];}}}},scales:{x:{ticks:{color:'#dce8f5',font:{size:11}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
   }
   // Shipment status chart
   if(sh.length>0){
@@ -642,7 +642,8 @@ function renderOverview(lp,ip,sh,es,isCon){
     const allStatuses=Object.keys(SHIP_STATUS_COLORS);
     const allCounts=allStatuses.map(s=>sh.filter(d=>d.status===s).length);
     h+='<div class="chart-wrap"><div class="chart-title">Shipments by Status</div><div style="height:220px;position:relative"><canvas id="chart-shipstatus"></canvas></div></div>';
-    queueChart('chart-shipstatus',{type:'doughnut',data:{labels:allStatuses,datasets:[{data:allCounts,backgroundColor:allStatuses.map(s=>SHIP_STATUS_COLORS[s]),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#dce8f5',font:{size:10},padding:8,boxWidth:10,filter:(item,data)=>data.datasets[0].data[item.index]>0}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw} shipment${ctx.raw!==1?'s':''}`}}}}});
+    const nonZeroStatuses=allStatuses.filter((_,i)=>allCounts[i]>0);const nonZeroCounts=allCounts.filter(c=>c>0);
+    queueChart('chart-shipstatus',{type:'bar',data:{labels:nonZeroStatuses,datasets:[{data:nonZeroCounts,backgroundColor:nonZeroStatuses.map(s=>SHIP_STATUS_COLORS[s]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw} shipment${ctx.raw!==1?'s':''}`}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
   }
   h+='</div>';
 
@@ -725,19 +726,19 @@ function renderLocal(data,isCon){
       queueChart('chart-local-stage',{type:'bar',data:{labels:lStages,datasets:[{label:'Items',data:lStages.map(s=>lStageMap[s].count),backgroundColor:lStages.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: BHD '+fmtNum(lStageMap[lStages[ctx.dataIndex]].val)]}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898',stepSize:1},grid:{color:'#1a2f46'}}}}});
     }
     // Items by category — fully data-driven
-    const lCatMap={};data.forEach(d=>{if(d.category)lCatMap[d.category]=(lCatMap[d.category]||0)+1;});
+    const lCatMap={};const lCatValMap={};data.forEach(d=>{if(d.category){lCatMap[d.category]=(lCatMap[d.category]||0)+1;lCatValMap[d.category]=(lCatValMap[d.category]||0)+(d.estimatedValue||0);}});
     const lCats=Object.keys(lCatMap).sort((a,b)=>lCatMap[b]-lCatMap[a]);
     if(lCats.length>0){
       h+='<div class="chart-wrap"><div class="chart-title">PRs by Category</div><div style="height:200px;position:relative"><canvas id="chart-local-cat"></canvas></div></div>';
-      queueChart('chart-local-cat',{type:'doughnut',data:{labels:lCats,datasets:[{data:lCats.map(c=>lCatMap[c]),backgroundColor:lCats.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#dce8f5',font:{size:10},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>[' '+ctx.label+': '+ctx.raw+' items']}}}}});
+      queueChart('chart-local-cat',{type:'bar',data:{labels:lCats,datasets:[{data:lCats.map(c=>lCatMap[c]),backgroundColor:lCats.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: BHD '+fmtNum(lCatValMap[lCats[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
     }
     // Items by priority — fully data-driven
-    const lPriMap={};data.forEach(d=>{if(d.priority)lPriMap[d.priority]=(lPriMap[d.priority]||0)+1;});
+    const lPriMap={};const lPriValMap={};data.forEach(d=>{if(d.priority){lPriMap[d.priority]=(lPriMap[d.priority]||0)+1;lPriValMap[d.priority]=(lPriValMap[d.priority]||0)+(d.estimatedValue||0);}});
     const lPris=Object.keys(lPriMap);
     if(lPris.length>0){
       const priColors={'Urgent':'#b83232','High':'#c0612e','Normal':'#2d6fd4','Low':'#4e6580'};
       h+='<div class="chart-wrap"><div class="chart-title">PRs by Priority</div><div style="height:200px;position:relative"><canvas id="chart-local-pri"></canvas></div></div>';
-      queueChart('chart-local-pri',{type:'doughnut',data:{labels:lPris,datasets:[{data:lPris.map(p=>lPriMap[p]),backgroundColor:lPris.map(p=>priColors[p]||'#4e6580'),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#dce8f5',font:{size:10},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>[' '+ctx.label+': '+ctx.raw+' items']}}}}});
+      queueChart('chart-local-pri',{type:'bar',data:{labels:lPris,datasets:[{data:lPris.map(p=>lPriMap[p]),backgroundColor:lPris.map(p=>priColors[p]||'#4e6580'),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: BHD '+fmtNum(lPriValMap[lPris[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:11}}}}}});
     }
     h+='</div>';
   }
@@ -792,18 +793,18 @@ function renderIntl(data,isCon){
       queueChart('chart-intl-stage',{type:'bar',data:{labels:iStages,datasets:[{label:'Items',data:iStages.map(s=>iStageMap[s].count),backgroundColor:iStages.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: $'+fmtNum(iStageMap[iStages[ctx.dataIndex]].val)]}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898',stepSize:1},grid:{color:'#1a2f46'}}}}});
     }
     // Items by country — fully data-driven
-    const iCtyMap={};data.forEach(d=>{if(d.country)iCtyMap[d.country]=(iCtyMap[d.country]||0)+1;});
+    const iCtyMap={};const iCtyValMap={};data.forEach(d=>{if(d.country){iCtyMap[d.country]=(iCtyMap[d.country]||0)+1;iCtyValMap[d.country]=(iCtyValMap[d.country]||0)+(d.estimatedValue||0);}});
     const iCountries=Object.keys(iCtyMap).sort((a,b)=>iCtyMap[b]-iCtyMap[a]);
     if(iCountries.length>0){
       h+='<div class="chart-wrap"><div class="chart-title">POs by Supplier Country</div><div style="height:200px;position:relative"><canvas id="chart-intl-country"></canvas></div></div>';
-      queueChart('chart-intl-country',{type:'doughnut',data:{labels:iCountries,datasets:[{data:iCountries.map(c=>iCtyMap[c]),backgroundColor:iCountries.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#dce8f5',font:{size:10},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>[' '+ctx.label+': '+ctx.raw+' items']}}}}});
+      queueChart('chart-intl-country',{type:'bar',data:{labels:iCountries,datasets:[{data:iCountries.map(c=>iCtyMap[c]),backgroundColor:iCountries.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: USD '+fmtNum(iCtyValMap[iCountries[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
     }
     // Items by payment status — fully data-driven
-    const iPmtMap={};data.forEach(d=>{if(d.paymentStatus)iPmtMap[d.paymentStatus]=(iPmtMap[d.paymentStatus]||0)+1;});
+    const iPmtMap={};const iPmtValMap={};data.forEach(d=>{if(d.paymentStatus){iPmtMap[d.paymentStatus]=(iPmtMap[d.paymentStatus]||0)+1;iPmtValMap[d.paymentStatus]=(iPmtValMap[d.paymentStatus]||0)+(d.estimatedValue||0);}});
     const iPmts=Object.keys(iPmtMap);
     if(iPmts.length>0){
       h+='<div class="chart-wrap"><div class="chart-title">POs by Payment Status</div><div style="height:200px;position:relative"><canvas id="chart-intl-pmt"></canvas></div></div>';
-      queueChart('chart-intl-pmt',{type:'doughnut',data:{labels:iPmts,datasets:[{data:iPmts.map(p=>iPmtMap[p]),backgroundColor:iPmts.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#dce8f5',font:{size:10},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>[' '+ctx.label+': '+ctx.raw+' items']}}}}});
+      queueChart('chart-intl-pmt',{type:'bar',data:{labels:iPmts,datasets:[{data:iPmts.map(p=>iPmtMap[p]),backgroundColor:iPmts.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: USD '+fmtNum(iPmtValMap[iPmts[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:11}}}}}});
     }
     h+='</div>';
   }
@@ -861,10 +862,13 @@ function renderShipments(shAll,shipF,isCon){
     const allStatuses=Object.keys(SHIP_STATUS_COLORS);
     const allCounts=allStatuses.map(s=>shAll.filter(d=>d.status===s).length);
     h+='<div class="chart-wrap"><div class="chart-title">All Shipments by Status</div><div style="height:220px;position:relative"><canvas id="chart-sh-status"></canvas></div></div>';
-    queueChart('chart-sh-status',{type:'doughnut',data:{labels:allStatuses,datasets:[{data:allCounts,backgroundColor:allStatuses.map(s=>SHIP_STATUS_COLORS[s]),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#dce8f5',font:{size:10},padding:8,boxWidth:10,filter:(item,data)=>data.datasets[0].data[item.index]>0}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw} shipment${ctx.raw!==1?'s':''}`}}}}});
+    const shStatusCostMap={};allStatuses.forEach(s=>{shStatusCostMap[s]=shAll.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0);});
+    const nzStatuses=allStatuses.filter((_,i)=>allCounts[i]>0);const nzCounts=allCounts.filter(c=>c>0);
+    queueChart('chart-sh-status',{type:'bar',data:{labels:nzStatuses,datasets:[{data:nzCounts,backgroundColor:nzStatuses.map(s=>SHIP_STATUS_COLORS[s]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Shipments: '+ctx.raw,' Clearing: BHD '+fmtNum(shStatusCostMap[nzStatuses[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
     // Import vs Export donut
     h+='<div class="chart-wrap"><div class="chart-title">Import vs Export</div><div style="height:220px;position:relative"><canvas id="chart-sh-dir"></canvas></div></div>';
-    queueChart('chart-sh-dir',{type:'doughnut',data:{labels:['🔵 Import — '+impSh.length+' shipments','🟠 Export — '+expSh.length+' shipments'],datasets:[{data:[impSh.length,expSh.length],backgroundColor:['#2d6fd4','#c0612e'],borderWidth:3,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#dce8f5',font:{size:11},padding:14,boxWidth:12}},tooltip:{callbacks:{label:ctx=>[` Count: ${ctx.raw}`,' Value: BHD '+fmtNum(ctx.dataIndex===0?impSh.reduce((s,d)=>s+(d.cargoValue||0),0):expSh.reduce((s,d)=>s+(d.cargoValue||0),0))]}}}}});
+    const impVal=impSh.reduce((s,d)=>s+(d.cargoValue||0),0);const expVal=expSh.reduce((s,d)=>s+(d.cargoValue||0),0);
+    queueChart('chart-sh-dir',{type:'bar',data:{labels:['Import','Export'],datasets:[{data:[impSh.length,expSh.length],backgroundColor:['#2d6fd4','#c0612e'],borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Shipments: '+ctx.raw,' Cargo Value: BHD '+fmtNum(ctx.dataIndex===0?impVal:expVal)]}}},scales:{x:{ticks:{color:'#dce8f5',font:{size:12}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
     // Clearing cost by status (top 6 non-zero)
     const clearByStatus=allStatuses.map((s,i)=>({s,count:allCounts[i],cost:shAll.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0),color:SHIP_STATUS_COLORS[s]})).filter(x=>x.cost>0);
     if(clearByStatus.length>0){
@@ -877,7 +881,8 @@ function renderShipments(shAll,shipF,isCon){
       const incoCounts=incoList.map(t=>shAll.filter(d=>d.incoterms===t).length);
       const incoColors=['#2d6fd4','#0d9e80','#d4891a','#b83232','#6148c5','#0891b2','#c0612e','#14784a','#a8306e','#0c7fb8'];
       h+='<div class="chart-wrap"><div class="chart-title">Shipments by Incoterms</div><div style="height:220px;position:relative"><canvas id="chart-sh-inco"></canvas></div></div>';
-      queueChart('chart-sh-inco',{type:'doughnut',data:{labels:incoList,datasets:[{data:incoCounts,backgroundColor:incoColors.slice(0,incoList.length),borderWidth:2,borderColor:'#0d1828'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#dce8f5',font:{size:11},padding:10,boxWidth:12}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw} shipment${ctx.raw!==1?'s':''}`}}}}});
+      const incoValMap={};incoList.forEach(t=>{incoValMap[t]=shAll.filter(d=>d.incoterms===t).reduce((s,d)=>s+(d.cargoValue||0),0);});
+      queueChart('chart-sh-inco',{type:'bar',data:{labels:incoList,datasets:[{data:incoCounts,backgroundColor:incoColors.slice(0,incoList.length),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Shipments: '+ctx.raw,' Cargo Value: BHD '+fmtNum(incoValMap[incoList[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:11}}}}}});
     }
     h+='</div>';
   }
