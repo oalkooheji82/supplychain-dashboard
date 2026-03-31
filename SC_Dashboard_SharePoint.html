@@ -636,14 +636,13 @@ function renderOverview(lp,ip,sh,es,isCon){
     h+='<div class="chart-wrap"><div class="chart-title">Active Spend Distribution</div><div style="height:220px;position:relative"><canvas id="chart-spend"></canvas></div></div>';
     queueChart('chart-spend',{type:'doughnut',data:{labels:spendLabels,datasets:[{data:[activeLVal,activeIVal],backgroundColor:['#10b981','#f97316'],hoverBackgroundColor:['#34d399','#fb923c'],borderWidth:3,borderColor:'#1a2332'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#e2e8f0',font:{size:11},padding:14,boxWidth:12}},tooltip:{callbacks:{label:ctx=>{const pct=spendTotal>0?(ctx.raw/spendTotal*100).toFixed(1):'0';return[` Value: ${fmtNum(ctx.raw)}`,' Share: '+pct+'%'];}}}}}});
   }
-  // Shipment status bar
+  // Shipment status chart
   if(sh.length>0){
-    const statuses=['Booking','Loaded / Departed','In Transit','Transshipment','Arrived at Port','Customs Clearance','Released','Delivered','Delayed','Rerouted'];
-    const counts=statuses.map(s=>sh.filter(d=>d.status===s).length);
-    const colors=['#64748b','#3b82f6','#10b981','#06b6d4','#0ea5e9','#eab308','#22c55e','#16a34a','#ef4444','#f59e0b'];
-    const nonZeroIdx=statuses.map((_,i)=>i).filter(i=>counts[i]>0);
-    h+='<div class="chart-wrap"><div class="chart-title">Shipments by Status</div><div style="height:180px;position:relative"><canvas id="chart-shipstatus"></canvas></div></div>';
-    queueChart('chart-shipstatus',{type:'bar',data:{labels:nonZeroIdx.map(i=>statuses[i]),datasets:[{data:nonZeroIdx.map(i=>counts[i]),backgroundColor:nonZeroIdx.map(i=>colors[i]),borderRadius:4,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8899aa',font:{size:10}}},y:{ticks:{color:'#8899aa'},grid:{color:'#2d3f52'}}}}});
+    const SHIP_STATUS_COLORS={'Booking':'#64748b','Loaded / Departed':'#3b82f6','In Transit':'#10b981','Transshipment':'#06b6d4','Arrived at Port':'#0ea5e9','Customs Clearance':'#eab308','Released':'#22c55e','Delivered':'#16a34a','Delayed':'#ef4444','Rerouted':'#f59e0b'};
+    const allStatuses=Object.keys(SHIP_STATUS_COLORS);
+    const allCounts=allStatuses.map(s=>sh.filter(d=>d.status===s).length);
+    h+='<div class="chart-wrap"><div class="chart-title">Shipments by Status</div><div style="height:220px;position:relative"><canvas id="chart-shipstatus"></canvas></div></div>';
+    queueChart('chart-shipstatus',{type:'doughnut',data:{labels:allStatuses,datasets:[{data:allCounts,backgroundColor:allStatuses.map(s=>SHIP_STATUS_COLORS[s]),borderWidth:2,borderColor:'#1a2332'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#e2e8f0',font:{size:10},padding:8,boxWidth:10,filter:(item,data)=>data.datasets[0].data[item.index]>0}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw} shipment${ctx.raw!==1?'s':''}`}}}}});
   }
   h+='</div>';
 
@@ -841,6 +840,26 @@ function renderShipments(shAll,shipF,isCon){
     metricCard('🔄','Rerouted',rerouted.length,'#f59e0b')+
     metricCard('💰','Total Clearing (BHD)',fmtNum(totalClearing),'#f97316')+
     '</div>';
+
+  // Charts
+  if(shAll.length>0){
+    h+='<div class="charts-row">';
+    const SHIP_STATUS_COLORS={'Booking':'#64748b','Loaded / Departed':'#3b82f6','In Transit':'#10b981','Transshipment':'#06b6d4','Arrived at Port':'#0ea5e9','Customs Clearance':'#eab308','Released':'#22c55e','Delivered':'#16a34a','Delayed':'#ef4444','Rerouted':'#f59e0b'};
+    const allStatuses=Object.keys(SHIP_STATUS_COLORS);
+    const allCounts=allStatuses.map(s=>shAll.filter(d=>d.status===s).length);
+    h+='<div class="chart-wrap"><div class="chart-title">All Shipments by Status</div><div style="height:220px;position:relative"><canvas id="chart-sh-status"></canvas></div></div>';
+    queueChart('chart-sh-status',{type:'doughnut',data:{labels:allStatuses,datasets:[{data:allCounts,backgroundColor:allStatuses.map(s=>SHIP_STATUS_COLORS[s]),borderWidth:2,borderColor:'#1a2332'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#e2e8f0',font:{size:10},padding:8,boxWidth:10,filter:(item,data)=>data.datasets[0].data[item.index]>0}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw} shipment${ctx.raw!==1?'s':''}`}}}}});
+    // Import vs Export donut
+    h+='<div class="chart-wrap"><div class="chart-title">Import vs Export</div><div style="height:220px;position:relative"><canvas id="chart-sh-dir"></canvas></div></div>';
+    queueChart('chart-sh-dir',{type:'doughnut',data:{labels:['🔵 Import — '+impSh.length+' shipments','🟠 Export — '+expSh.length+' shipments'],datasets:[{data:[impSh.length,expSh.length],backgroundColor:['#3b82f6','#f97316'],borderWidth:3,borderColor:'#1a2332'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#e2e8f0',font:{size:11},padding:14,boxWidth:12}},tooltip:{callbacks:{label:ctx=>[` Count: ${ctx.raw}`,' Value: BHD '+fmtNum(ctx.dataIndex===0?impSh.reduce((s,d)=>s+(d.cargoValue||0),0):expSh.reduce((s,d)=>s+(d.cargoValue||0),0))]}}}}});
+    // Clearing cost by status (top 6 non-zero)
+    const clearByStatus=allStatuses.map((s,i)=>({s,count:allCounts[i],cost:shAll.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0),color:SHIP_STATUS_COLORS[s]})).filter(x=>x.cost>0);
+    if(clearByStatus.length>0){
+      h+='<div class="chart-wrap"><div class="chart-title">Clearing Cost by Status (BHD)</div><div style="height:220px;position:relative"><canvas id="chart-sh-clear"></canvas></div></div>';
+      queueChart('chart-sh-clear',{type:'bar',data:{labels:clearByStatus.map(x=>x.s),datasets:[{data:clearByStatus.map(x=>x.cost),backgroundColor:clearByStatus.map(x=>x.color),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' BHD '+fmtNum(ctx.raw),' '+clearByStatus[ctx.dataIndex].count+' shipments']}}},scales:{x:{ticks:{color:'#8899aa',font:{size:10}}},y:{ticks:{color:'#8899aa'},grid:{color:'#2d3f52'}}}}});
+    }
+    h+='</div>';
+  }
 
   // Filters
   h+='<div class="filter-bar"><div class="filter-group"><span class="filter-label">Direction:</span>';
