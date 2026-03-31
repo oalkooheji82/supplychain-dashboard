@@ -20,7 +20,13 @@ exports.handler = async (event, context) => {
 
   const tokenData = await tokenRes.json();
   if (!tokenData.access_token) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Auth failed', details: tokenData }) };
+    return { statusCode: 401, body: JSON.stringify({
+      error: 'Auth failed',
+      details: tokenData,
+      client_id_set: !!clientId,
+      secret_set: !!clientSecret,
+      tenant_set: !!tenantId
+    })};
   }
 
   // Fetch Excel file from OneDrive
