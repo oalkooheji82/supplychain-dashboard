@@ -631,8 +631,10 @@ function renderOverview(lp,ip,sh,es,isCon){
   h+='<div class="charts-row">';
   // Spend donut
   if(activeLVal>0||activeIVal>0){
-    h+='<div class="chart-wrap"><div class="chart-title">Active Spend Distribution</div><div style="height:180px;position:relative"><canvas id="chart-spend"></canvas></div></div>';
-    queueChart('chart-spend',{type:'doughnut',data:{labels:['Local (BHD)','International (USD)'],datasets:[{data:[activeLVal,activeIVal],backgroundColor:['#3b82f6','#8b5cf6'],borderWidth:2,borderColor:'#1a2332'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#8899aa',font:{size:11},padding:12}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmtNum(ctx.raw)}`}}}}});
+    const spendTotal=activeLVal+activeIVal;
+    const spendLabels=[`🟢 Local Purchases (BHD) — ${activeL.length} items`,`🟠 International Purchases (USD) — ${activeI.length} items`];
+    h+='<div class="chart-wrap"><div class="chart-title">Active Spend Distribution</div><div style="height:220px;position:relative"><canvas id="chart-spend"></canvas></div></div>';
+    queueChart('chart-spend',{type:'doughnut',data:{labels:spendLabels,datasets:[{data:[activeLVal,activeIVal],backgroundColor:['#10b981','#f97316'],hoverBackgroundColor:['#34d399','#fb923c'],borderWidth:3,borderColor:'#1a2332'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#e2e8f0',font:{size:11},padding:14,boxWidth:12}},tooltip:{callbacks:{label:ctx=>{const pct=spendTotal>0?(ctx.raw/spendTotal*100).toFixed(1):'0';return[` Value: ${fmtNum(ctx.raw)}`,' Share: '+pct+'%'];}}}}}});
   }
   // Shipment status bar
   if(sh.length>0){
@@ -712,6 +714,27 @@ function renderLocal(data,isCon){
     metricCard('','Aging >7 Days',aging.length,'#ef4444')+
     '</div>';
   h+=pipelineBar(LOCAL_STAGES,data,'stage');
+  // Charts
+  if(data.length>0){
+    h+='<div class="charts-row">';
+    // Spend by stage
+    const lStageColors={'PR Raised':'#64748b','Pending Approval':'#f59e0b','Approved':'#3b82f6','RFQ / Quotation':'#06b6d4','PO Issued':'#8b5cf6','Delivery Pending':'#f97316','Closed / Completed':'#10b981'};
+    const lStages=Object.keys(lStageColors);
+    const lStageCounts=lStages.map(s=>data.filter(d=>d.stage===s).length);
+    const lStageVals=lStages.map(s=>data.filter(d=>d.stage===s).reduce((sum,d)=>sum+(d.estimatedValue||0),0));
+    const lNonZero=lStages.map((_,i)=>i).filter(i=>lStageCounts[i]>0);
+    h+='<div class="chart-wrap"><div class="chart-title">Spend by Stage (BHD)</div><div style="height:200px;position:relative"><canvas id="chart-local-stage"></canvas></div></div>';
+    queueChart('chart-local-stage',{type:'bar',data:{labels:lNonZero.map(i=>lStages[i]),datasets:[{label:'Value (BHD)',data:lNonZero.map(i=>lStageVals[i]),backgroundColor:lNonZero.map(i=>lStageColors[lStages[i]]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Value: BHD '+fmtNum(ctx.raw),' Items: '+lStageCounts[lNonZero[ctx.dataIndex]]]}}},scales:{x:{ticks:{color:'#8899aa',font:{size:10}}},y:{ticks:{color:'#8899aa'},grid:{color:'#2d3f52'}}}}});
+    // Spend by category
+    const lCats=[...new Set(data.map(d=>d.category).filter(Boolean))].sort();
+    if(lCats.length>0){
+      const lCatVals=lCats.map(c=>data.filter(d=>d.category===c).reduce((s,d)=>s+(d.estimatedValue||0),0));
+      const catColors=['#3b82f6','#10b981','#f97316','#8b5cf6','#ef4444','#06b6d4','#f59e0b','#ec4899'];
+      h+='<div class="chart-wrap"><div class="chart-title">Spend by Category (BHD)</div><div style="height:200px;position:relative"><canvas id="chart-local-cat"></canvas></div></div>';
+      queueChart('chart-local-cat',{type:'doughnut',data:{labels:lCats,datasets:[{data:lCatVals,backgroundColor:catColors.slice(0,lCats.length),borderWidth:2,borderColor:'#1a2332'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#e2e8f0',font:{size:10},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>[' '+ctx.label+': BHD '+fmtNum(ctx.raw)]}}}}});
+    }
+    h+='</div>';
+  }
   const cols=[
     {key:'prNumber',label:'PR #',type:'string'},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
@@ -751,6 +774,27 @@ function renderIntl(data,isCon){
     metricCard('','Aging >14 Days',aging.length,'#ef4444')+
     '</div>';
   h+=pipelineBar(INTL_STAGES,data,'stage');
+  // Charts
+  if(data.length>0){
+    h+='<div class="charts-row">';
+    // Spend by stage
+    const iStageColors={'PR Raised':'#64748b','Pending Approval':'#f59e0b','Approved':'#8b5cf6','Supplier Selected':'#3b82f6','PO Issued':'#06b6d4','Production / Manufacturing':'#ec4899','Ready to Ship':'#0ea5e9','In Transit (Sea/Air)':'#10b981','Arrived at Port':'#22c55e','Customs Clearance':'#eab308','Released / Delivered':'#16a34a','Closed / Completed':'#6b7280'};
+    const iStages=Object.keys(iStageColors);
+    const iStageCounts=iStages.map(s=>data.filter(d=>d.stage===s).length);
+    const iStageVals=iStages.map(s=>data.filter(d=>d.stage===s).reduce((sum,d)=>sum+(d.estimatedValue||0),0));
+    const iNonZero=iStages.map((_,i)=>i).filter(i=>iStageCounts[i]>0);
+    h+='<div class="chart-wrap"><div class="chart-title">Spend by Stage (USD)</div><div style="height:200px;position:relative"><canvas id="chart-intl-stage"></canvas></div></div>';
+    queueChart('chart-intl-stage',{type:'bar',data:{labels:iNonZero.map(i=>iStages[i]),datasets:[{label:'Value (USD)',data:iNonZero.map(i=>iStageVals[i]),backgroundColor:iNonZero.map(i=>iStageColors[iStages[i]]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Value: $'+fmtNum(ctx.raw),' Items: '+iStageCounts[iNonZero[ctx.dataIndex]]]}}},scales:{x:{ticks:{color:'#8899aa',font:{size:10}}},y:{ticks:{color:'#8899aa'},grid:{color:'#2d3f52'}}}}});
+    // Spend by country
+    const iCountries=[...new Set(data.map(d=>d.country).filter(Boolean))].sort();
+    if(iCountries.length>0){
+      const iCountryVals=iCountries.map(c=>data.filter(d=>d.country===c).reduce((s,d)=>s+(d.estimatedValue||0),0));
+      const ctrColors=['#f97316','#8b5cf6','#10b981','#3b82f6','#ef4444','#06b6d4','#f59e0b','#ec4899'];
+      h+='<div class="chart-wrap"><div class="chart-title">Spend by Country (USD)</div><div style="height:200px;position:relative"><canvas id="chart-intl-country"></canvas></div></div>';
+      queueChart('chart-intl-country',{type:'doughnut',data:{labels:iCountries,datasets:[{data:iCountryVals,backgroundColor:ctrColors.slice(0,iCountries.length),borderWidth:2,borderColor:'#1a2332'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#e2e8f0',font:{size:10},padding:10,boxWidth:10}},tooltip:{callbacks:{label:ctx=>[' '+ctx.label+': $'+fmtNum(ctx.raw)]}}}}});
+    }
+    h+='</div>';
+  }
   const cols=[
     {key:'prNumber',label:'PR #',type:'string'},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
