@@ -780,10 +780,9 @@ function renderOverview(lp,ip,sh,es,isCon){
 
   // Charts row
   h+='<div class="charts-row">';
-  // Spend donut
-  if(activeLVal>0||activeIVal>0){
+  // Spend distribution (level 3+)
+  if(lvl>=3&&(activeLVal>0||activeIVal>0)){
     const spendTotal=activeLVal+activeIVal;
-    const spendLabels=[`🟢 Local Purchases (BHD) — ${activeL.length} items`,`🟠 International Purchases (USD) — ${activeI.length} items`];
     h+='<div class="chart-wrap"><div class="chart-title">Active Spend Distribution</div><div style="height:220px;position:relative"><canvas id="chart-spend"></canvas></div></div>';
     queueChart('chart-spend',{type:'bar',data:{labels:['Local Purchases (BHD)','International (USD)'],datasets:[{data:[activeLVal,activeIVal],backgroundColor:['#0d9e80','#c0612e'],borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const pct=spendTotal>0?(ctx.raw/spendTotal*100).toFixed(1):'0';return[` Value: ${fmtNum(ctx.raw)}`,' Items: '+(ctx.dataIndex===0?activeL.length:activeI.length),' Share: '+pct+'%'];}}}},scales:{x:{ticks:{color:'#dce8f5',font:{size:11}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
   }
@@ -809,12 +808,14 @@ function renderOverview(lp,ip,sh,es,isCon){
     }
   }
 
-  // Incoterms
+  // Incoterms (level 3+)
+  if(lvl>=3){
   const ic={};INCOTERMS_LIST.forEach(t=>ic[t]=0);sh.forEach(s=>{if(ic[s.incoterms]!==undefined)ic[s.incoterms]++;});
   if(INCOTERMS_LIST.some(t=>ic[t]>0)){
     h+='<div class="section-title">Shipments by Incoterms</div><div class="incoterm-cards">';
     INCOTERMS_LIST.filter(t=>ic[t]>0).forEach(t=>{h+='<div class="incoterm-card"><div style="font-size:20px;font-weight:700;color:#9b87f5">'+ic[t]+'</div><div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-top:2px">'+t+'</div></div>';});
     h+='</div>';
+  }
   }
 
   h+='<div class="section-title">Local Purchases Pipeline</div>'+pipelineBar(LOCAL_STAGES,lp,'stage');
@@ -947,11 +948,12 @@ function renderIntl(data,isCon){
   const tabId='international';
   const active=data.filter(d=>d.stage!=='Closed / Completed');
   const aging=active.filter(d=>d.daysInStage>14);
+  const lvlIM=userLevel();
   let h='<div class="grid grid-5">'+
     metricCard('','Total',data.length,'#6148c5')+
     metricCard('','Active',active.length,'#2d6fd4')+
     metricCard('','In Transit',data.filter(d=>d.stage==='In Transit (Sea/Air)').length,'#0d9e80')+
-    metricCard('','Payment Pending',data.filter(d=>d.paymentStatus==='Payment Pending').length,'#d4891a')+
+    (lvlIM>=3?metricCard('','Payment Pending',data.filter(d=>d.paymentStatus==='Payment Pending').length,'#d4891a'):'')+
     metricCard('','Aging >14 Days',aging.length,'#b83232')+
     '</div>';
   h+=pipelineBar(INTL_STAGES,data,'stage');
@@ -1042,26 +1044,26 @@ function renderShipments(shAll,shipF,isCon){
     h+='<div class="chart-wrap"><div class="chart-title">All Shipments by Status</div><div style="height:220px;position:relative"><canvas id="chart-sh-status"></canvas></div></div>';
     const shStatusCostMap={};allStatuses.forEach(s=>{shStatusCostMap[s]=shAll.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0);});
     const nzStatuses=allStatuses.filter((_,i)=>allCounts[i]>0);const nzCounts=allCounts.filter(c=>c>0);
-    queueChart('chart-sh-status',{type:'bar',data:{labels:nzStatuses,datasets:[{data:nzCounts,backgroundColor:nzStatuses.map(s=>SHIP_STATUS_COLORS[s]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Shipments: '+ctx.raw,' Clearing: BHD '+fmtNum(shStatusCostMap[nzStatuses[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
+    queueChart('chart-sh-status',{type:'bar',data:{labels:nzStatuses,datasets:[{data:nzCounts,backgroundColor:nzStatuses.map(s=>SHIP_STATUS_COLORS[s]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>lvlS>=4?[' Shipments: '+ctx.raw,' Clearing: BHD '+fmtNum(shStatusCostMap[nzStatuses[ctx.dataIndex]])]:[' Shipments: '+ctx.raw]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
     // Import vs Export donut
     h+='<div class="chart-wrap"><div class="chart-title">Import vs Export</div><div style="height:220px;position:relative"><canvas id="chart-sh-dir"></canvas></div></div>';
     const impVal=impSh.reduce((s,d)=>s+(d.cargoValue||0),0);const expVal=expSh.reduce((s,d)=>s+(d.cargoValue||0),0);
-    queueChart('chart-sh-dir',{type:'bar',data:{labels:['Import','Export'],datasets:[{data:[impSh.length,expSh.length],backgroundColor:['#2d6fd4','#c0612e'],borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Shipments: '+ctx.raw,' Cargo Value: BHD '+fmtNum(ctx.dataIndex===0?impVal:expVal)]}}},scales:{x:{ticks:{color:'#dce8f5',font:{size:12}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
-    // Clearing cost by status (top 6 non-zero)
-    const clearByStatus=allStatuses.map((s,i)=>({s,count:allCounts[i],cost:shAll.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0),color:SHIP_STATUS_COLORS[s]})).filter(x=>x.cost>0);
+    queueChart('chart-sh-dir',{type:'bar',data:{labels:['Import','Export'],datasets:[{data:[impSh.length,expSh.length],backgroundColor:['#2d6fd4','#c0612e'],borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>lvlS>=3?[' Shipments: '+ctx.raw,' Cargo Value: BHD '+fmtNum(ctx.dataIndex===0?impVal:expVal)]:[' Shipments: '+ctx.raw]}}},scales:{x:{ticks:{color:'#dce8f5',font:{size:12}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
+    // Clearing cost by status (level 4+)
+    if(lvlS>=4){const clearByStatus=allStatuses.map((s,i)=>({s,count:allCounts[i],cost:shAll.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0),color:SHIP_STATUS_COLORS[s]})).filter(x=>x.cost>0);
     if(clearByStatus.length>0){
       h+='<div class="chart-wrap"><div class="chart-title">Clearing Cost by Status (BHD)</div><div style="height:220px;position:relative"><canvas id="chart-sh-clear"></canvas></div></div>';
       queueChart('chart-sh-clear',{type:'bar',data:{labels:clearByStatus.map(x=>x.s),datasets:[{data:clearByStatus.map(x=>x.cost),backgroundColor:clearByStatus.map(x=>x.color),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' BHD '+fmtNum(ctx.raw),' '+clearByStatus[ctx.dataIndex].count+' shipments']}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
-    }
-    // Incoterms distribution
-    const incoList=[...new Set(shAll.map(d=>d.incoterms).filter(Boolean))].sort();
+    }}
+    // Incoterms distribution (level 3+)
+    if(lvlS>=3){const incoList=[...new Set(shAll.map(d=>d.incoterms).filter(Boolean))].sort();
     if(incoList.length>0){
       const incoCounts=incoList.map(t=>shAll.filter(d=>d.incoterms===t).length);
       const incoColors=['#2d6fd4','#0d9e80','#d4891a','#b83232','#6148c5','#0891b2','#c0612e','#14784a','#a8306e','#0c7fb8'];
       h+='<div class="chart-wrap"><div class="chart-title">Shipments by Incoterms</div><div style="height:220px;position:relative"><canvas id="chart-sh-inco"></canvas></div></div>';
       const incoValMap={};incoList.forEach(t=>{incoValMap[t]=shAll.filter(d=>d.incoterms===t).reduce((s,d)=>s+(d.cargoValue||0),0);});
-      queueChart('chart-sh-inco',{type:'bar',data:{labels:incoList,datasets:[{data:incoCounts,backgroundColor:incoColors.slice(0,incoList.length),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Shipments: '+ctx.raw,' Cargo Value: BHD '+fmtNum(incoValMap[incoList[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:11}}}}}});
-    }
+      queueChart('chart-sh-inco',{type:'bar',data:{labels:incoList,datasets:[{data:incoCounts,backgroundColor:incoColors.slice(0,incoList.length),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>lvlS>=3?[' Shipments: '+ctx.raw,' Cargo Value: BHD '+fmtNum(incoValMap[incoList[ctx.dataIndex]])]:[' Shipments: '+ctx.raw]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:11}}}}}});
+    }}
     h+='</div>';
   }
 
