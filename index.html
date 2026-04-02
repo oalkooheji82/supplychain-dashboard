@@ -756,22 +756,23 @@ function renderOverview(lp,ip,sh,es,isCon){
   const totalVat=sh.reduce((s,d)=>s+d.vat,0);
   const totalDO=sh.reduce((s,d)=>s+d.doCharges,0);
 
+  const lvl=userLevel();
   let h='<div class="section-label">Purchase Activity</div><div class="grid grid-6">';
   h+=metricCard('📋','Active Local PRs',activeL.length,'#2d6fd4',agingL.length+' aging (>7d)');
-  h+=metricCard('💵','Local Value (BHD)',fmtNum(activeLVal),'#2d6fd4',activeL.length+' active PRs');
-  h+=metricCard('✅','Local Closed',closedL.length,'#4e6580',fmtNum(closedLVal)+' BHD completed');
+  if(lvl>=3) h+=metricCard('💵','Local Value (BHD)',fmtNum(activeLVal),'#2d6fd4',activeL.length+' active PRs');
+  h+=metricCard('✅','Local Closed',closedL.length,'#4e6580',lvl>=3?fmtNum(closedLVal)+' BHD completed':'');
   h+=metricCard('🌍','Active Intl PRs',activeI.length,'#6148c5',agingI.length+' aging (>14d)');
-  h+=metricCard('💰','Intl Value (USD)',fmtNum(activeIVal),'#6148c5',activeI.length+' active PRs');
-  h+=metricCard('✅','Intl Closed',closedI.length,'#4e6580','$'+fmtNum(closedIVal)+' completed');
+  if(lvl>=3) h+=metricCard('💰','Intl Value (USD)',fmtNum(activeIVal),'#6148c5',activeI.length+' active PRs');
+  h+=metricCard('✅','Intl Closed',closedI.length,'#4e6580',lvl>=3?'$'+fmtNum(closedIVal)+' completed':'');
   h+='</div>';
 
   h+='<div class="section-label">Shipments & Logistics</div><div class="grid grid-6">';
   h+=metricCard('🚢','Active Shipments',activeSh.length,'#0d9e80',impSh.filter(s=>s.status!=='Delivered').length+' imp, '+expSh.filter(s=>s.status!=='Delivered').length+' exp');
-  h+=metricCard('💎','Total Shipment Value',fmtNum(totalShVal)+' BHD','#0c7fb8','Import: '+fmtNum(impSh.reduce((s,d)=>s+(d.cargoValue||0),0))+' | Export: '+fmtNum(expSh.reduce((s,d)=>s+(d.cargoValue||0),0)));
-  h+=metricCard('📦','Total Containers',totalCont,'#0891b2',contSub);
+  if(lvl>=3) h+=metricCard('💎','Total Shipment Value',fmtNum(totalShVal)+' BHD','#0c7fb8','Import: '+fmtNum(impSh.reduce((s,d)=>s+(d.cargoValue||0),0))+' | Export: '+fmtNum(expSh.reduce((s,d)=>s+(d.cargoValue||0),0)));
+  if(lvl>=4) h+=metricCard('📦','Total Containers',totalCont,'#0891b2',contSub);
   h+=metricCard('🚨','Delayed',delayed.length,'#b83232',rerouted.length+' rerouted');
   h+=metricCard('⚠️','Open Escalations',openEsc.length,'#d4891a',critEsc.length+' critical');
-  h+=metricCard('🧾','Total Clearing (BHD)',fmtNum(totalClearing),'#c0612e','Duty: '+fmtNum(totalDuty)+' | VAT: '+fmtNum(totalVat)+' | DO: '+fmtNum(totalDO));
+  if(lvl>=4) h+=metricCard('🧾','Total Clearing (BHD)',fmtNum(totalClearing),'#c0612e','Duty: '+fmtNum(totalDuty)+' | VAT: '+fmtNum(totalVat)+' | DO: '+fmtNum(totalDO));
   h+='</div>';
 
   // Charts row
@@ -856,11 +857,12 @@ function renderLocal(data,isCon){
   const active=data.filter(d=>d.stage!=='Closed / Completed'&&d.stage!=='Cancelled');
   const aging=active.filter(d=>d.daysInStage>7);
   const cancelledVal=cancelled.reduce((s,d)=>s+(d.estimatedValue||0),0);
+  const lvlLM=userLevel();
   let h='<div class="grid grid-5">'+
     metricCard('','Total',data.length,'#2d6fd4')+
     metricCard('','Active',active.length,'#6148c5')+
     metricCard('','Pending Approval',data.filter(d=>d.stage==='Pending Approval').length,'#d4891a')+
-    metricCard('','Cancelled',cancelled.length,'#b83232',cancelled.length>0?'BHD '+fmtNum(cancelledVal):'')+
+    metricCard('','Cancelled',cancelled.length,'#b83232',cancelled.length>0&&lvlLM>=3?'BHD '+fmtNum(cancelledVal):'')+
     metricCard('','Aging >7 Days',aging.length,'#b83232')+
     '</div>';
   h+=pipelineBar(LOCAL_STAGES,data,'stage');
@@ -873,14 +875,14 @@ function renderLocal(data,isCon){
     const lStages=Object.keys(lStageMap).sort((a,b)=>lStageMap[b].count-lStageMap[a].count);
     if(lStages.length>0){
       h+='<div class="chart-wrap"><div class="chart-title">PRs by Stage</div><div style="height:200px;position:relative"><canvas id="chart-local-stage"></canvas></div></div>';
-      queueChart('chart-local-stage',{type:'bar',data:{labels:lStages,datasets:[{label:'Items',data:lStages.map(s=>lStageMap[s].count),backgroundColor:lStages.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: BHD '+fmtNum(lStageMap[lStages[ctx.dataIndex]].val)]}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898',stepSize:1},grid:{color:'#1a2f46'}}}}});
+      queueChart('chart-local-stage',{type:'bar',data:{labels:lStages,datasets:[{label:'Items',data:lStages.map(s=>lStageMap[s].count),backgroundColor:lStages.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>lvlLM>=3?[' Items: '+ctx.raw,' Value: BHD '+fmtNum(lStageMap[lStages[ctx.dataIndex]].val)]:[' Items: '+ctx.raw]}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898',stepSize:1},grid:{color:'#1a2f46'}}}}});
     }
     // Items by category — fully data-driven
     const lCatMap={};const lCatValMap={};data.forEach(d=>{if(d.category){lCatMap[d.category]=(lCatMap[d.category]||0)+1;lCatValMap[d.category]=(lCatValMap[d.category]||0)+(d.estimatedValue||0);}});
     const lCats=Object.keys(lCatMap).sort((a,b)=>lCatMap[b]-lCatMap[a]);
     if(lCats.length>0){
       h+='<div class="chart-wrap"><div class="chart-title">PRs by Category</div><div style="height:200px;position:relative"><canvas id="chart-local-cat"></canvas></div></div>';
-      queueChart('chart-local-cat',{type:'bar',data:{labels:lCats,datasets:[{data:lCats.map(c=>lCatMap[c]),backgroundColor:lCats.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: BHD '+fmtNum(lCatValMap[lCats[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
+      queueChart('chart-local-cat',{type:'bar',data:{labels:lCats,datasets:[{data:lCats.map(c=>lCatMap[c]),backgroundColor:lCats.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>lvlLM>=3?[' Items: '+ctx.raw,' Value: BHD '+fmtNum(lCatValMap[lCats[ctx.dataIndex]])]:[' Items: '+ctx.raw]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
     }
     // Items by priority — fully data-driven
     const lPriMap={};const lPriValMap={};data.forEach(d=>{if(d.priority){lPriMap[d.priority]=(lPriMap[d.priority]||0)+1;lPriValMap[d.priority]=(lPriValMap[d.priority]||0)+(d.estimatedValue||0);}});
@@ -888,14 +890,16 @@ function renderLocal(data,isCon){
     if(lPris.length>0){
       const priColors={'Urgent':'#b83232','High':'#c0612e','Normal':'#2d6fd4','Low':'#4e6580'};
       h+='<div class="chart-wrap"><div class="chart-title">PRs by Priority</div><div style="height:200px;position:relative"><canvas id="chart-local-pri"></canvas></div></div>';
-      queueChart('chart-local-pri',{type:'bar',data:{labels:lPris,datasets:[{data:lPris.map(p=>lPriMap[p]),backgroundColor:lPris.map(p=>priColors[p]||'#4e6580'),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: BHD '+fmtNum(lPriValMap[lPris[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:11}}}}}});
+      queueChart('chart-local-pri',{type:'bar',data:{labels:lPris,datasets:[{data:lPris.map(p=>lPriMap[p]),backgroundColor:lPris.map(p=>priColors[p]||'#4e6580'),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>lvlLM>=3?[' Items: '+ctx.raw,' Value: BHD '+fmtNum(lPriValMap[lPris[ctx.dataIndex]])]:[' Items: '+ctx.raw]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:11}}}}}});
     }
-    // Payment Terms chart
+    // Payment Terms chart (level 3+)
+    if(lvlLM>=3){
     const lPtMap={};const lPtValMap={};data.forEach(d=>{if(d.paymentTerms){lPtMap[d.paymentTerms]=(lPtMap[d.paymentTerms]||0)+1;lPtValMap[d.paymentTerms]=(lPtValMap[d.paymentTerms]||0)+(d.poValue||0);}});
     const lPts=Object.keys(lPtMap).sort((a,b)=>lPtMap[b]-lPtMap[a]);
     if(lPts.length>0){
       h+='<div class="chart-wrap"><div class="chart-title">POs by Payment Terms</div><div style="height:200px;position:relative"><canvas id="chart-local-pt"></canvas></div></div>';
       queueChart('chart-local-pt',{type:'bar',data:{labels:lPts,datasets:[{data:lPts.map(p=>lPtMap[p]),backgroundColor:lPts.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' POs: '+ctx.raw,' Value: BHD '+fmtNum(lPtValMap[lPts[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
+    }
     }
     // Cancelled POs by reason
     if(cancelled.length>0){
@@ -906,27 +910,28 @@ function renderLocal(data,isCon){
     }
     h+='</div>';
   }
+  const lvlL=userLevel();
   const cols=[
     {key:'prNumber',label:'PR #',type:'string'},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
-    {key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)},
+    ...(lvlL>=3?[{key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)}]:[]),
     {key:'projectName',label:'Project',type:'string'},
     {key:'item',label:'Item',type:'string'},
-    {key:'requestedBy',label:'Requested By',type:'string'},
-    {key:'dateRaised',label:'Date Raised',type:'string'},
+    ...(lvlL>=2?[{key:'requestedBy',label:'Requested By',type:'string'}]:[]),
+    ...(lvlL>=2?[{key:'dateRaised',label:'Date Raised',type:'string'}]:[]),
     {key:'category',label:'Category',type:'string'},
-    {key:'priority',label:'Priority',type:'string',render:v=>priBadge(v)},
-    {key:'estimatedValue',label:'Est. Value (BHD)',type:'number',render:v=>fmtNum(v)},
+    ...(lvlL>=2?[{key:'priority',label:'Priority',type:'string',render:v=>priBadge(v)}]:[]),
+    ...(lvlL>=3?[{key:'estimatedValue',label:'Est. Value (BHD)',type:'number',render:v=>fmtNum(v)}]:[]),
     {key:'stage',label:'Stage',type:'string',render:v=>stageBadge(v)},
-    {key:'buyer',label:'Buyer',type:'string'},
-    {key:'supplier',label:'Supplier',type:'string'},
-    {key:'poNumber',label:'PO #',type:'string'},
-    {key:'poValue',label:'PO Value (BHD)',type:'number',render:v=>v?fmtNum(v):''},
-    {key:'paymentTerms',label:'Payment Terms',type:'string'},
+    ...(lvlL>=3?[{key:'buyer',label:'Buyer',type:'string'}]:[]),
+    ...(lvlL>=3?[{key:'supplier',label:'Supplier',type:'string'}]:[]),
+    ...(lvlL>=3?[{key:'poNumber',label:'PO #',type:'string'}]:[]),
+    ...(lvlL>=3?[{key:'poValue',label:'PO Value (BHD)',type:'number',render:v=>v?fmtNum(v):''}]:[]),
+    ...(lvlL>=3?[{key:'paymentTerms',label:'Payment Terms',type:'string'}]:[]),
     {key:'expectedDelivery',label:'Exp. Delivery',type:'string'},
-    {key:'daysInStage',label:'Days',type:'number',render:(v,r)=>'<span style="font-weight:700;color:'+(v>7&&r.stage!=='Closed / Completed'&&r.stage!=='Cancelled'?'#b83232':'var(--text-primary)')+'">'+v+'</span>'},
-    {key:'remarks',label:'Remarks',type:'string'},
-    {key:'cancellationReason',label:'Cancel Reason',type:'string'}
+    ...(lvlL>=2?[{key:'daysInStage',label:'Days',type:'number',render:(v,r)=>'<span style="font-weight:700;color:'+(v>7&&r.stage!=='Closed / Completed'&&r.stage!=='Cancelled'?'#b83232':'var(--text-primary)')+'">'+v+'</span>'}]:[]),
+    ...(lvlL>=2?[{key:'remarks',label:'Remarks',type:'string'}]:[]),
+    ...(lvlL>=3?[{key:'cancellationReason',label:'Cancel Reason',type:'string'}]:[]),
   ];
   h+=dataTable(tabId,cols,data);
   return h;
@@ -956,43 +961,46 @@ function renderIntl(data,isCon){
     const iStages=Object.keys(iStageMap).sort((a,b)=>iStageMap[b].count-iStageMap[a].count);
     if(iStages.length>0){
       h+='<div class="chart-wrap"><div class="chart-title">POs by Stage</div><div style="height:200px;position:relative"><canvas id="chart-intl-stage"></canvas></div></div>';
-      queueChart('chart-intl-stage',{type:'bar',data:{labels:iStages,datasets:[{label:'Items',data:iStages.map(s=>iStageMap[s].count),backgroundColor:iStages.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: $'+fmtNum(iStageMap[iStages[ctx.dataIndex]].val)]}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898',stepSize:1},grid:{color:'#1a2f46'}}}}});
+      const _iLvl=userLevel();queueChart('chart-intl-stage',{type:'bar',data:{labels:iStages,datasets:[{label:'Items',data:iStages.map(s=>iStageMap[s].count),backgroundColor:iStages.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>_iLvl>=3?[' Items: '+ctx.raw,' Value: $'+fmtNum(iStageMap[iStages[ctx.dataIndex]].val)]:[' Items: '+ctx.raw]}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898',stepSize:1},grid:{color:'#1a2f46'}}}}});
     }
-    // Items by country — fully data-driven
+    // Items by country (level 3+)
+    if(_iLvl>=3){
     const iCtyMap={};const iCtyValMap={};data.forEach(d=>{if(d.country){iCtyMap[d.country]=(iCtyMap[d.country]||0)+1;iCtyValMap[d.country]=(iCtyValMap[d.country]||0)+(d.estimatedValue||0);}});
     const iCountries=Object.keys(iCtyMap).sort((a,b)=>iCtyMap[b]-iCtyMap[a]);
     if(iCountries.length>0){
       h+='<div class="chart-wrap"><div class="chart-title">POs by Supplier Country</div><div style="height:200px;position:relative"><canvas id="chart-intl-country"></canvas></div></div>';
       queueChart('chart-intl-country',{type:'bar',data:{labels:iCountries,datasets:[{data:iCountries.map(c=>iCtyMap[c]),backgroundColor:iCountries.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: USD '+fmtNum(iCtyValMap[iCountries[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
     }
-    // Items by payment status — fully data-driven
+    // Items by payment status (level 3+)
     const iPmtMap={};const iPmtValMap={};data.forEach(d=>{if(d.paymentStatus){iPmtMap[d.paymentStatus]=(iPmtMap[d.paymentStatus]||0)+1;iPmtValMap[d.paymentStatus]=(iPmtValMap[d.paymentStatus]||0)+(d.estimatedValue||0);}});
     const iPmts=Object.keys(iPmtMap);
     if(iPmts.length>0){
       h+='<div class="chart-wrap"><div class="chart-title">POs by Payment Status</div><div style="height:200px;position:relative"><canvas id="chart-intl-pmt"></canvas></div></div>';
       queueChart('chart-intl-pmt',{type:'bar',data:{labels:iPmts,datasets:[{data:iPmts.map(p=>iPmtMap[p]),backgroundColor:iPmts.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' Items: '+ctx.raw,' Value: USD '+fmtNum(iPmtValMap[iPmts[ctx.dataIndex]])]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:11}}}}}});
     }
+    }
     h+='</div>';
   }
+  const lvlI=userLevel();
   const cols=[
     {key:'prNumber',label:'PR #',type:'string'},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
-    {key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)},
+    ...(lvlI>=3?[{key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)}]:[]),
     {key:'projectName',label:'Project',type:'string'},
     {key:'item',label:'Item',type:'string'},
-    {key:'supplier',label:'Supplier',type:'string'},
-    {key:'country',label:'Country',type:'string'},
-    {key:'dateRaised',label:'Date Raised',type:'string'},
+    ...(lvlI>=3?[{key:'supplier',label:'Supplier',type:'string'}]:[]),
+    ...(lvlI>=3?[{key:'country',label:'Country',type:'string'}]:[]),
+    ...(lvlI>=2?[{key:'dateRaised',label:'Date Raised',type:'string'}]:[]),
     {key:'category',label:'Category',type:'string'},
-    {key:'estimatedValue',label:'Value (USD)',type:'number',render:v=>v?'$'+fmtNum(v):''},
+    ...(lvlI>=3?[{key:'estimatedValue',label:'Value (USD)',type:'number',render:v=>v?'$'+fmtNum(v):''}]:[]),
     {key:'stage',label:'Stage',type:'string',render:v=>stageBadge(v)},
-    {key:'incoterms',label:'Incoterms',type:'string',render:v=>incoBadge(v)},
-    {key:'paymentTerms',label:'Payment Terms',type:'string'},
-    {key:'paymentStatus',label:'Payment',type:'string',render:v=>'<span style="color:'+(v==='Payment Pending'?'#d4891a':v==='Fully Paid'?'#1a9e55':'var(--text-primary)')+'">'+esc(v)+'</span>'},
+    ...(lvlI>=3?[{key:'incoterms',label:'Incoterms',type:'string',render:v=>incoBadge(v)}]:[]),
+    ...(lvlI>=3?[{key:'paymentTerms',label:'Payment Terms',type:'string'}]:[]),
+    ...(lvlI>=3?[{key:'paymentStatus',label:'Payment',type:'string',render:v=>'<span style="color:'+(v==='Payment Pending'?'#d4891a':v==='Fully Paid'?'#1a9e55':'var(--text-primary)')+'">'+esc(v)+'</span>'}]:[]),
     {key:'productionStatus',label:'Production',type:'string'},
     {key:'expectedDelivery',label:'Exp. Delivery',type:'string'},
-    {key:'daysInStage',label:'Days',type:'number',render:(v,r)=>'<span style="font-weight:700;color:'+(v>14&&r.stage!=='Closed / Completed'?'#b83232':'var(--text-primary)')+'">'+v+'</span>'},
-    {key:'remarks',label:'Remarks',type:'string'}
+    ...(lvlI>=2?[{key:'daysInStage',label:'Days',type:'number',render:(v,r)=>'<span style="font-weight:700;color:'+(v>14&&r.stage!=='Closed / Completed'?'#b83232':'var(--text-primary)')+'">'+v+'</span>'}]:[]),
+    ...(lvlI>=2?[{key:'remarks',label:'Remarks',type:'string'}]:[]),
   ];
   h+=dataTable(tabId,cols,data);
   return h;
@@ -1012,13 +1020,14 @@ function renderShipments(shAll,shipF,isCon){
   const totalClearing=shAll.reduce((s,d)=>s+(d.totalClearing||0),0);
   const delayReasons=[...new Set(delayed.map(s=>s.delayReason).filter(Boolean))].sort();
 
+  const lvlS=userLevel();
   let h='<div class="grid grid-6">'+
     metricCard('🚢','Total Shipments',shAll.length,'#0d9e80',impSh.length+' imp, '+expSh.length+' exp')+
-    metricCard('📦','Containers',totalCont,'#0891b2',contSub)+
+    (lvlS>=4?metricCard('📦','Containers',totalCont,'#0891b2',contSub):'')+
     metricCard('⏳','In Transit',shipF.filter(d=>['Loaded / Departed','In Transit','Transshipment'].includes(d.status)).length,'#2d6fd4')+
     metricCard('🚨','Delayed',delayed.length,'#b83232')+
     metricCard('🔄','Rerouted',rerouted.length,'#d4891a')+
-    metricCard('💰','Total Clearing (BHD)',fmtNum(totalClearing),'#c0612e')+
+    (lvlS>=4?metricCard('💰','Total Clearing (BHD)',fmtNum(totalClearing),'#c0612e'):'')+
     '</div>';
 
   // Charts
@@ -1070,37 +1079,37 @@ function renderShipments(shAll,shipF,isCon){
   h+='</div>';
 
   const cols=[
-    {key:'poRef',label:'PO Ref',type:'string'},
+    ...(lvlS>=3?[{key:'poRef',label:'PO Ref',type:'string'}]:[]),
     {key:'direction',label:'Dir',type:'string',render:v=>dirBadge(v)},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
-    {key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)},
+    ...(lvlS>=3?[{key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)}]:[]),
     {key:'item',label:'Item',type:'string'},
-    {key:'supplier',label:'Supplier',type:'string'},
-    {key:'country',label:'Country',type:'string'},
-    {key:'incoterms',label:'Incoterms',type:'string',render:v=>incoBadge(v)},
+    ...(lvlS>=3?[{key:'supplier',label:'Supplier',type:'string'}]:[]),
+    ...(lvlS>=3?[{key:'country',label:'Country',type:'string'}]:[]),
+    ...(lvlS>=3?[{key:'incoterms',label:'Incoterms',type:'string',render:v=>incoBadge(v)}]:[]),
     {key:'mode',label:'Mode',type:'string'},
-    {key:'cnt20',label:'Containers',type:'string',render:(_,r)=>containerStr(r)},
-    {key:'blAwb',label:'BL/AWB #',type:'string'},
-    {key:'originPort',label:'Origin Port',type:'string'},
-    {key:'destPort',label:'Dest Port',type:'string'},
-    {key:'carrier',label:'Carrier',type:'string'},
-    {key:'etd',label:'ETD',type:'string'},
+    ...(lvlS>=4?[{key:'cnt20',label:'Containers',type:'string',render:(_,r)=>containerStr(r)}]:[]),
+    ...(lvlS>=3?[{key:'blAwb',label:'BL/AWB #',type:'string'}]:[]),
+    ...(lvlS>=3?[{key:'originPort',label:'Origin Port',type:'string'}]:[]),
+    ...(lvlS>=3?[{key:'destPort',label:'Dest Port',type:'string'}]:[]),
+    ...(lvlS>=3?[{key:'carrier',label:'Carrier',type:'string'}]:[]),
+    ...(lvlS>=3?[{key:'etd',label:'ETD',type:'string'}]:[]),
     {key:'eta',label:'ETA',type:'string'},
-    {key:'daysSinceETD',label:'Days ETD',type:'number',render:v=>v?'<span style="color:'+(v>30?'#b83232':v>14?'#d4891a':'var(--text-primary)')+';font-weight:700">'+v+'</span>':''},
+    ...(lvlS>=3?[{key:'daysSinceETD',label:'Days ETD',type:'number',render:v=>v?'<span style="color:'+(v>30?'#b83232':v>14?'#d4891a':'var(--text-primary)')+';font-weight:700">'+v+'</span>':''}]:[]),
     {key:'status',label:'Status',type:'string',render:v=>statusBadge(v)},
     {key:'delayReason',label:'Delay Reason',type:'string',render:v=>v?badgeSm(v,'#b8323222','#f08080'):''},
-    {key:'rerouted',label:'Rerouted',type:'string',render:(v,r)=>v==='Yes'?badgeSm(r.reroutedTo||'Yes','#d4891a22','#fcd34d'):'-'},
-    {key:'customsBroker',label:'Customs Broker',type:'string'},
-    {key:'customsStatus',label:'Customs Status',type:'string'},
-    {key:'cargoValue',label:'Cargo Value',type:'number',render:v=>v?fmtNum(v):''},
-    {key:'customsDuty',label:'Duty (BHD)',type:'number',render:v=>v?fmtNum(v):''},
-    {key:'vat',label:'VAT (BHD)',type:'number',render:v=>v?fmtNum(v):''},
-    {key:'doCharges',label:'DO (BHD)',type:'number',render:v=>v?fmtNum(v):''},
-    {key:'freight',label:'Freight (BHD)',type:'number',render:v=>v?fmtNum(v):''},
-    {key:'thc',label:'THC (BHD)',type:'number',render:v=>v?fmtNum(v):''},
-    {key:'demurrage',label:'Demurrage (BHD)',type:'number',render:v=>v?'<span style="color:#b83232">'+fmtNum(v)+'</span>':''},
-    {key:'totalClearing',label:'Total Clearing',type:'number',render:v=>'<span style="font-weight:700">'+fmtNum(v)+'</span>'},
-    {key:'remarks',label:'Remarks',type:'string'}
+    ...(lvlS>=4?[{key:'rerouted',label:'Rerouted',type:'string',render:(v,r)=>v==='Yes'?badgeSm(r.reroutedTo||'Yes','#d4891a22','#fcd34d'):'-'}]:[]),
+    ...(lvlS>=4?[{key:'customsBroker',label:'Customs Broker',type:'string'}]:[]),
+    ...(lvlS>=4?[{key:'customsStatus',label:'Customs Status',type:'string'}]:[]),
+    ...(lvlS>=3?[{key:'cargoValue',label:'Cargo Value',type:'number',render:v=>v?fmtNum(v):''}]:[]),
+    ...(lvlS>=4?[{key:'customsDuty',label:'Duty (BHD)',type:'number',render:v=>v?fmtNum(v):''}]:[]),
+    ...(lvlS>=4?[{key:'vat',label:'VAT (BHD)',type:'number',render:v=>v?fmtNum(v):''}]:[]),
+    ...(lvlS>=4?[{key:'doCharges',label:'DO (BHD)',type:'number',render:v=>v?fmtNum(v):''}]:[]),
+    ...(lvlS>=3?[{key:'freight',label:'Freight (BHD)',type:'number',render:v=>v?fmtNum(v):''}]:[]),
+    ...(lvlS>=4?[{key:'thc',label:'THC (BHD)',type:'number',render:v=>v?fmtNum(v):''}]:[]),
+    ...(lvlS>=4?[{key:'demurrage',label:'Demurrage (BHD)',type:'number',render:v=>v?'<span style="color:#b83232">'+fmtNum(v)+'</span>':''}]:[]),
+    ...(lvlS>=4?[{key:'totalClearing',label:'Total Clearing',type:'number',render:v=>'<span style="font-weight:700">'+fmtNum(v)+'</span>'}]:[]),
+    {key:'remarks',label:'Remarks',type:'string'},
   ];
   h+=dataTable(tabId,cols,shipF);
   return h;
@@ -1281,6 +1290,7 @@ function clearShipFilters(){shipDirFilter='All';shipIncFilter='All';delayFilter=
 // ═══════════════════════════════════════════════
 const TIER_LABELS={admin:'Admin',ceo:'CEO',gm:'General Manager',director:'Director',manager:'Manager',officer:'Officer'};
 const TIER_LEVEL={admin:5,ceo:5,gm:4,director:3,manager:2,officer:1};
+function userLevel(){return currentUser?TIER_LEVEL[currentUser.tier]||1:0;}
 
 async function api(path,method='GET',body=null){
   const opts={method,headers:{'Content-Type':'application/json',...(authToken?{Authorization:'Bearer '+authToken}:{})}};
@@ -1334,17 +1344,32 @@ function showAuthedUI(){
 }
 
 function applyDivisionAccess(){
-  if(!currentUser||currentUser.divisions.includes('all')) return;
-  const allowed=['Consolidated View',...currentUser.divisions];
-  // If current active division not allowed, reset to Consolidated View
-  if(!allowed.includes(activeDivision)) activeDivision='Consolidated View';
+  if(!currentUser) return;
+  const lvl=TIER_LEVEL[currentUser.tier]||1;
+  const canSeeAll=currentUser.divisions.includes('all');
+  // Only admin/ceo (level 5) can use Consolidated View
+  if(lvl<5){
+    const divList=canSeeAll?DIVISIONS.slice(1):currentUser.divisions.filter(d=>DIVISIONS.includes(d));
+    if(!divList.includes(activeDivision)) activeDivision=divList[0]||DIVISIONS[1];
+  } else if(!canSeeAll){
+    const allowed=['Consolidated View',...currentUser.divisions];
+    if(!allowed.includes(activeDivision)) activeDivision='Consolidated View';
+  }
 }
 
-// Override renderDivBar to filter by user's allowed divisions
+// Override renderDivBar to filter by user's allowed divisions + tier
 const _origRenderDivBar=renderDivBar;
 function renderDivBar(){
   if(!currentUser){_origRenderDivBar();return;}
-  const allowed=currentUser.divisions.includes('all')?DIVISIONS:['Consolidated View',...currentUser.divisions.filter(d=>DIVISIONS.includes(d))];
+  const lvl=TIER_LEVEL[currentUser.tier]||1;
+  const canSeeAll=currentUser.divisions.includes('all');
+  let allowed;
+  if(lvl>=5){
+    allowed=canSeeAll?DIVISIONS:['Consolidated View',...currentUser.divisions.filter(d=>DIVISIONS.includes(d))];
+  } else {
+    // No Consolidated View for level < 5
+    allowed=canSeeAll?DIVISIONS.slice(1):currentUser.divisions.filter(d=>DIVISIONS.includes(d));
+  }
   let h='';
   allowed.forEach(d=>{h+='<button class="div-btn'+(d===activeDivision?' active':'')+'" onclick="setDivision(\''+escAttr(d)+'\')">'+esc(d)+'</button>';});
   document.getElementById('divisionBar').innerHTML=h;
