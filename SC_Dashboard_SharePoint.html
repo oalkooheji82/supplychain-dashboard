@@ -113,9 +113,125 @@ select{padding:5px 10px;border-radius:6px;border:1px solid var(--border-color);b
 .loading{display:flex;align-items:center;justify-content:center;min-height:50vh;font-size:16px;color:var(--text-muted)}
 .hidden{display:none}
 .refresh-btn{padding:6px 16px;border-radius:6px;border:1px solid var(--border-color);cursor:pointer;font-size:11px;background:var(--bg-tertiary);color:#0d9e80;font-weight:600}
+/* ── AUTH ── */
+#authOverlay{position:fixed;inset:0;background:#060A10;z-index:1000;display:flex;align-items:center;justify-content:center}
+.auth-card{background:#0C1220;border:1px solid #1a2f46;border-radius:16px;padding:40px 36px;width:100%;max-width:400px;box-shadow:0 24px 64px #00000080}
+.auth-logo{text-align:center;margin-bottom:28px}
+.auth-logo .shield{font-size:48px;margin-bottom:8px}
+.auth-logo h2{font-size:20px;font-weight:700;color:#fff;margin:0}
+.auth-logo p{font-size:12px;color:#5c7898;margin-top:4px}
+.auth-field{margin-bottom:16px}
+.auth-field label{display:block;font-size:12px;font-weight:600;color:#5c7898;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em}
+.auth-input{width:100%;padding:11px 14px;border-radius:8px;border:1px solid #1a2f46;background:#060A10;color:#dce8f5;font-size:14px;outline:none;transition:border-color 0.15s}
+.auth-input:focus{border-color:#3B82F6}
+.auth-btn{width:100%;padding:13px;border-radius:8px;border:none;cursor:pointer;font-size:14px;font-weight:700;background:#3B82F6;color:#fff;margin-top:8px;transition:background 0.15s}
+.auth-btn:hover{background:#2563eb}
+.auth-btn:disabled{background:#1a2f46;color:#5c7898;cursor:not-allowed}
+.auth-err{background:#b8323218;border:1px solid #b8323244;border-radius:6px;padding:10px 14px;font-size:12px;color:#f08080;margin-bottom:14px;display:none}
+.auth-footer{text-align:center;font-size:11px;color:#3a5068;margin-top:20px}
+.otp-boxes{display:flex;gap:10px;justify-content:center;margin:24px 0}
+.otp-box{width:50px;height:58px;border-radius:8px;border:1px solid #1a2f46;background:#060A10;color:#fff;font-size:24px;font-weight:700;text-align:center;outline:none;transition:border-color 0.15s}
+.otp-box:focus{border-color:#3B82F6}
+.otp-resend{background:transparent;border:none;color:#3B82F6;cursor:pointer;font-size:12px;text-decoration:underline;padding:0}
+.otp-resend:disabled{color:#3a5068;cursor:not-allowed;text-decoration:none}
+.pw-strength{display:flex;gap:4px;margin-top:6px}
+.pw-bar{flex:1;height:4px;border-radius:2px;background:#1a2f46;transition:background 0.2s}
+.pw-label{font-size:11px;color:#5c7898;margin-top:4px}
+/* ── TIER BADGE ── */
+.tier-badge{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em}
+.tier-admin{background:#ef444422;color:#ef4444;border:1px solid #ef444444}
+.tier-ceo{background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44}
+.tier-gm{background:#8b5cf622;color:#8b5cf6;border:1px solid #8b5cf644}
+.tier-director{background:#3b82f622;color:#3b82f6;border:1px solid #3b82f644}
+.tier-manager{background:#06b6d422;color:#06b6d4;border:1px solid #06b6d444}
+.tier-officer{background:#10b98122;color:#10b981;border:1px solid #10b98144}
+.access-banner{padding:8px 28px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border-color)}
+.logout-btn{padding:6px 14px;border-radius:6px;border:1px solid #1a2f46;cursor:pointer;font-size:11px;background:transparent;color:#5c7898;font-weight:600}
+.logout-btn:hover{color:#f08080;border-color:#b8323244}
+/* ── ADMIN PANEL ── */
+.admin-tabs{display:flex;gap:0;border-bottom:1px solid var(--border-color);margin-bottom:20px}
+.admin-tab{padding:10px 20px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:transparent;color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.admin-tab.active{color:#3b82f6;border-bottom-color:#3b82f6;font-weight:700}
+.user-table th,.user-table td{padding:10px 14px}
+.btn-sm{padding:5px 12px;border-radius:5px;border:none;cursor:pointer;font-size:11px;font-weight:600}
+.btn-primary{background:#3b82f6;color:#fff}
+.btn-danger{background:#b8323222;color:#f08080;border:1px solid #b8323244}
+.btn-success{background:#10b98122;color:#10b981;border:1px solid #10b98144}
+.modal-overlay{position:fixed;inset:0;background:#00000088;z-index:900;display:flex;align-items:center;justify-content:center}
+.modal-card{background:#0C1220;border:1px solid #1a2f46;border-radius:12px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:20px;color:#fff}
+.form-row{margin-bottom:14px}
+.form-row label{display:block;font-size:11px;font-weight:600;color:#5c7898;margin-bottom:5px;text-transform:uppercase}
+.form-row input,.form-row select{width:100%;padding:9px 12px;border-radius:6px;border:1px solid #1a2f46;background:#060A10;color:#dce8f5;font-size:13px;outline:none}
+.form-row input:focus,.form-row select:focus{border-color:#3b82f6}
+.div-checkboxes{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.div-check{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-primary);cursor:pointer;padding:4px 10px;border-radius:5px;border:1px solid var(--border-color);background:var(--bg-tertiary)}
+.div-check input{accent-color:#3b82f6}
+/* ── AI AGENT ── */
+#agentBtn{position:fixed;bottom:28px;right:28px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#6148c5);border:none;cursor:pointer;font-size:22px;box-shadow:0 4px 20px #3b82f660;z-index:500;display:none}
+#agentPanel{position:fixed;bottom:92px;right:28px;width:380px;max-height:520px;background:#0C1220;border:1px solid #1a2f46;border-radius:16px;box-shadow:0 16px 48px #00000080;z-index:500;display:none;flex-direction:column}
+.agent-header{padding:14px 18px;border-bottom:1px solid #1a2f46;display:flex;justify-content:space-between;align-items:center}
+.agent-header span{font-size:13px;font-weight:700;color:#fff}
+.agent-close{background:transparent;border:none;cursor:pointer;color:#5c7898;font-size:16px}
+.agent-messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:280px;max-height:340px}
+.agent-msg{padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.5;max-width:90%}
+.agent-msg.user{background:#3b82f622;border:1px solid #3b82f644;align-self:flex-end;color:#dce8f5}
+.agent-msg.bot{background:#1a2f46;align-self:flex-start;color:#dce8f5}
+.agent-msg.bot.thinking{color:#5c7898;font-style:italic}
+.agent-input-row{padding:12px 14px;border-top:1px solid #1a2f46;display:flex;gap:8px}
+.agent-input{flex:1;padding:9px 12px;border-radius:8px;border:1px solid #1a2f46;background:#060A10;color:#dce8f5;font-size:13px;outline:none}
+.agent-input:focus{border-color:#3b82f6}
+.agent-send{padding:9px 14px;border-radius:8px;border:none;background:#3b82f6;color:#fff;cursor:pointer;font-size:16px}
 </style>
 </head>
 <body>
+
+<!-- ═══ AUTH OVERLAY ═══ -->
+<div id="authOverlay">
+  <!-- LOGIN -->
+  <div id="authLogin" class="auth-card">
+    <div class="auth-logo"><div class="shield">🛡️</div><h2>Supply Chain Portal</h2><p>AJM Kooheji Group — Secure Access</p></div>
+    <div class="auth-err" id="loginErr"></div>
+    <div class="auth-field"><label>Username</label><input class="auth-input" id="loginUser" type="text" autocomplete="username" placeholder="Enter username"></div>
+    <div class="auth-field"><label>Password</label><input class="auth-input" id="loginPass" type="password" autocomplete="current-password" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="auth-btn" id="loginBtn" onclick="doLogin()">Sign In →</button>
+    <div class="auth-footer">🔒 Protected by Two-Factor Authentication</div>
+  </div>
+  <!-- OTP -->
+  <div id="authOTP" class="auth-card" style="display:none">
+    <div class="auth-logo"><div class="shield">📱</div><h2>Verify Identity</h2><p id="otpDesc">Check your Telegram for the code</p></div>
+    <div class="auth-err" id="otpErr"></div>
+    <div class="otp-boxes" id="otpBoxes">
+      <input class="otp-box" maxlength="1" type="text" inputmode="numeric" oninput="otpInput(this,0)" onkeydown="otpKey(this,0,event)">
+      <input class="otp-box" maxlength="1" type="text" inputmode="numeric" oninput="otpInput(this,1)" onkeydown="otpKey(this,1,event)">
+      <input class="otp-box" maxlength="1" type="text" inputmode="numeric" oninput="otpInput(this,2)" onkeydown="otpKey(this,2,event)">
+      <input class="otp-box" maxlength="1" type="text" inputmode="numeric" oninput="otpInput(this,3)" onkeydown="otpKey(this,3,event)">
+      <input class="otp-box" maxlength="1" type="text" inputmode="numeric" oninput="otpInput(this,4)" onkeydown="otpKey(this,4,event)">
+      <input class="otp-box" maxlength="1" type="text" inputmode="numeric" oninput="otpInput(this,5)" onkeydown="otpKey(this,5,event)">
+    </div>
+    <button class="auth-btn" id="otpBtn" onclick="doVerifyOTP()">Verify Code</button>
+    <div style="text-align:center;margin-top:14px"><button class="otp-resend" id="resendBtn" onclick="doResend()" disabled>Resend code (<span id="resendTimer">60</span>s)</button></div>
+    <div style="text-align:center;margin-top:10px"><button style="background:transparent;border:none;color:#5c7898;cursor:pointer;font-size:12px" onclick="backToLogin()">← Back to login</button></div>
+  </div>
+  <!-- CHANGE PASSWORD -->
+  <div id="authChangePw" class="auth-card" style="display:none">
+    <div class="auth-logo"><div class="shield">🔑</div><h2>Set New Password</h2><p>You must change your password before continuing</p></div>
+    <div class="auth-err" id="pwErr"></div>
+    <div class="auth-field"><label>New Password</label><input class="auth-input" id="newPw" type="password" placeholder="Min 8 chars, upper, lower, number, symbol" oninput="checkPwStrength(this.value)"></div>
+    <div class="pw-strength"><div class="pw-bar" id="pwBar1"></div><div class="pw-bar" id="pwBar2"></div><div class="pw-bar" id="pwBar3"></div></div>
+    <div class="pw-label" id="pwStrLabel"></div>
+    <div class="auth-field" style="margin-top:12px"><label>Confirm Password</label><input class="auth-input" id="confirmPw" type="password" placeholder="Re-enter password"></div>
+    <button class="auth-btn" id="pwBtn" onclick="doChangePw()">Set Password & Continue</button>
+  </div>
+</div>
+
+<!-- ═══ AI AGENT ═══ -->
+<button id="agentBtn" onclick="toggleAgent()" title="Ask AI">💬</button>
+<div id="agentPanel" style="display:none">
+  <div class="agent-header"><span>🤖 Supply Chain AI</span><button class="agent-close" onclick="toggleAgent()">✕</button></div>
+  <div class="agent-messages" id="agentMessages"><div class="agent-msg bot">Hello! I can answer questions about your supply chain data. What would you like to know?</div></div>
+  <div class="agent-input-row"><input class="agent-input" id="agentInput" placeholder="Ask a question…" onkeydown="if(event.key==='Enter')sendAgentMsg()"><button class="agent-send" onclick="sendAgentMsg()">➤</button></div>
+</div>
 
 <!-- TOP BAR -->
 <div class="top-bar">
@@ -125,7 +241,11 @@ select{padding:5px 10px;border-radius:6px;border:1px solid var(--border-color);b
   </div>
   <div class="info">
     <div class="date" id="currentDate"></div>
-    <div>Head of Supply Chain: Omar Al Kooheji</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+      <span id="userBadge"></span>
+      <span id="userFullName" style="font-size:12px;color:#dce8f5;font-weight:600"></span>
+      <button class="logout-btn" id="logoutBtn" style="display:none" onclick="doLogout()">Sign Out</button>
+    </div>
     <div class="ar-row">
       <span class="ar-label">Auto-refresh:</span>
       <select class="ar-select" id="arSelect" onchange="setAutoRefresh(this.value)">
@@ -137,6 +257,9 @@ select{padding:5px 10px;border-radius:6px;border:1px solid var(--border-color);b
     </div>
   </div>
 </div>
+
+<!-- ACCESS BANNER -->
+<div class="access-banner hidden" id="accessBanner"></div>
 
 <!-- LOADING SCREEN -->
 <div id="loadingScreen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;gap:20px">
@@ -187,8 +310,15 @@ select{padding:5px 10px;border-radius:6px;border:1px solid var(--border-color);b
 
 <script>
 // ═══════════════════════════════════════════════
-// CONFIGURATION
+// CONFIGURATION — update BACKEND_URL after Railway deploy
 // ═══════════════════════════════════════════════
+const BACKEND_URL = 'https://supplychain-bot-production.up.railway.app';
+
+// ── Auth state ──────────────────────────────────
+let authToken = localStorage.getItem('sc_token') || '';
+let currentUser = null;  // {username, full_name, tier, role, divisions, must_change_password}
+let _pendingUsername = '';
+let _resendInterval = null;
 
 // ═══════════════════════════════════════════════
 // CONSTANTS
@@ -362,7 +492,7 @@ function updateLastRefreshed(){
   el.classList.remove('hidden');
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{ loadExcelData(false); });
+document.addEventListener('DOMContentLoaded', ()=>{ checkAuth(); });
 
 // ═══════════════════════════════════════════════
 // AUTO-REFRESH
@@ -1107,7 +1237,7 @@ function renderProjectBar(){
 function renderTabs(){
   const {es}=getFiltered();
   const openEsc=es.filter(d=>d.status!=='Resolved'&&d.status!=='Closed');
-  const tabs=[{id:'overview',label:'Overview'},{id:'local',label:'Local Purchases'},{id:'international',label:'International'},{id:'shipments',label:'Shipments'},{id:'deliveries',label:'Deliveries'},{id:'escalations',label:'Escalations'}];
+  const tabs=[{id:'overview',label:'Overview'},{id:'local',label:'Local Purchases'},{id:'international',label:'International'},{id:'shipments',label:'Shipments'},{id:'deliveries',label:'Deliveries'},{id:'escalations',label:'Escalations'},...(currentUser&&currentUser.role==='admin'?[{id:'admin',label:'⚙️ Admin'}]:[]),...(currentUser?[{id:'agent',label:'🤖 AI Agent'}]:[]) ];
   let h='';
   tabs.forEach(t=>{
     h+='<button class="tab-btn'+(t.id===activeTab?' active':'')+'" onclick="setTab(\''+t.id+'\')">'+t.label;
@@ -1129,6 +1259,8 @@ function renderContent(){
   else if(activeTab==='shipments') html=renderShipments(sh,shipF,isCon);
   else if(activeTab==='deliveries') html=renderDeliveries(del,isCon);
   else if(activeTab==='escalations') html=renderEscalations(es,isCon);
+  else if(activeTab==='admin') html=renderAdminPanel();
+  else if(activeTab==='agent') html=renderAgentTab();
   document.getElementById('dashContent').innerHTML=html;
   setTimeout(initCharts,0);
 }
@@ -1143,6 +1275,450 @@ function setShipDir(f){shipDirFilter=f;renderContent();}
 function setShipInc(f){shipIncFilter=f;renderContent();}
 function setDelayF(f){delayFilter=f;renderContent();}
 function clearShipFilters(){shipDirFilter='All';shipIncFilter='All';delayFilter='All';renderContent();}
+
+// ═══════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════
+const TIER_LABELS={admin:'Admin',ceo:'CEO',gm:'General Manager',director:'Director',manager:'Manager',officer:'Officer'};
+const TIER_LEVEL={admin:5,ceo:5,gm:4,director:3,manager:2,officer:1};
+
+async function api(path,method='GET',body=null){
+  const opts={method,headers:{'Content-Type':'application/json',...(authToken?{Authorization:'Bearer '+authToken}:{})}};
+  if(body) opts.body=JSON.stringify(body);
+  const res=await fetch(BACKEND_URL+path,opts);
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.detail||'Request failed');
+  return data;
+}
+
+async function checkAuth(){
+  if(authToken){
+    try{
+      const r=await api('/auth/session');
+      currentUser=r.user;
+      showAuthedUI();
+      loadExcelData(false);
+      return;
+    }catch(e){
+      authToken='';localStorage.removeItem('sc_token');
+    }
+  }
+  showAuthScreen('login');
+}
+
+function showAuthScreen(screen){
+  document.getElementById('authOverlay').style.display='flex';
+  document.getElementById('loadingScreen').style.display='none';
+  document.getElementById('authLogin').style.display=screen==='login'?'':'none';
+  document.getElementById('authOTP').style.display=screen==='otp'?'':'none';
+  document.getElementById('authChangePw').style.display=screen==='changepw'?'':'none';
+}
+
+function hideAuthOverlay(){document.getElementById('authOverlay').style.display='none';}
+
+function showAuthedUI(){
+  hideAuthOverlay();
+  const tier=currentUser.tier;
+  const label=TIER_LABELS[tier]||tier;
+  document.getElementById('userBadge').innerHTML=`<span class="tier-badge tier-${tier}">${label}</span>`;
+  document.getElementById('userFullName').textContent=currentUser.full_name;
+  document.getElementById('logoutBtn').style.display='';
+  const lvl=TIER_LEVEL[tier]||1;
+  const banner=document.getElementById('accessBanner');
+  const divText=currentUser.divisions.includes('all')?'All Divisions':currentUser.divisions.join(', ');
+  banner.innerHTML=`<span class="tier-badge tier-${tier}">${label}</span> <span style="color:#5c7898">Level ${lvl}/5 — ${divText}</span>`;
+  banner.classList.remove('hidden');
+  document.getElementById('agentBtn').style.display='';
+  // Filter division bar to user's divisions
+  applyDivisionAccess();
+}
+
+function applyDivisionAccess(){
+  if(!currentUser||currentUser.divisions.includes('all')) return;
+  const allowed=['Consolidated View',...currentUser.divisions];
+  // If current active division not allowed, reset to Consolidated View
+  if(!allowed.includes(activeDivision)) activeDivision='Consolidated View';
+}
+
+// Override renderDivBar to filter by user's allowed divisions
+const _origRenderDivBar=renderDivBar;
+function renderDivBar(){
+  if(!currentUser){_origRenderDivBar();return;}
+  const allowed=currentUser.divisions.includes('all')?DIVISIONS:['Consolidated View',...currentUser.divisions.filter(d=>DIVISIONS.includes(d))];
+  let h='';
+  allowed.forEach(d=>{h+='<button class="div-btn'+(d===activeDivision?' active':'')+'" onclick="setDivision(\''+escAttr(d)+'\')">'+esc(d)+'</button>';});
+  document.getElementById('divisionBar').innerHTML=h;
+  renderProjectBar();
+}
+
+// ── Login ──
+async function doLogin(){
+  const btn=document.getElementById('loginBtn');
+  const errEl=document.getElementById('loginErr');
+  errEl.style.display='none';
+  const username=document.getElementById('loginUser').value.trim();
+  const password=document.getElementById('loginPass').value;
+  if(!username||!password){showAuthErr(errEl,'Please enter username and password.');return;}
+  btn.disabled=true;btn.textContent='Signing in…';
+  try{
+    const r=await api('/auth/login','POST',{username,password});
+    _pendingUsername=username;
+    document.getElementById('otpDesc').textContent=`Code sent to ${r.full_name}'s Telegram`;
+    showAuthScreen('otp');
+    startResendTimer();
+    document.querySelectorAll('.otp-box')[0].focus();
+  }catch(e){showAuthErr(errEl,e.message);}
+  finally{btn.disabled=false;btn.textContent='Sign In →';}
+}
+
+function backToLogin(){clearInterval(_resendInterval);showAuthScreen('login');}
+
+// ── OTP ──
+function otpInput(el,idx){
+  el.value=el.value.replace(/\D/g,'');
+  if(el.value&&idx<5) document.querySelectorAll('.otp-box')[idx+1].focus();
+  if(idx===5&&el.value) doVerifyOTP();
+}
+function otpKey(el,idx,e){
+  if(e.key==='Backspace'&&!el.value&&idx>0) document.querySelectorAll('.otp-box')[idx-1].focus();
+}
+
+async function doVerifyOTP(){
+  const btn=document.getElementById('otpBtn');
+  const errEl=document.getElementById('otpErr');
+  errEl.style.display='none';
+  const boxes=document.querySelectorAll('.otp-box');
+  const code=Array.from(boxes).map(b=>b.value).join('');
+  if(code.length!==6){showAuthErr(errEl,'Enter all 6 digits.');return;}
+  btn.disabled=true;btn.textContent='Verifying…';
+  try{
+    const r=await api('/auth/verify-otp','POST',{username:_pendingUsername,code});
+    authToken=r.token;
+    localStorage.setItem('sc_token',authToken);
+    currentUser=r.user;
+    clearInterval(_resendInterval);
+    if(currentUser.must_change_password){showAuthScreen('changepw');}
+    else{showAuthedUI();loadExcelData(false);}
+  }catch(e){
+    showAuthErr(errEl,e.message);
+    boxes.forEach(b=>b.value='');
+    boxes[0].focus();
+  }
+  finally{btn.disabled=false;btn.textContent='Verify Code';}
+}
+
+async function doResend(){
+  document.getElementById('resendBtn').disabled=true;
+  try{await api('/auth/resend-otp','POST',{username:_pendingUsername});startResendTimer();}
+  catch(e){console.error(e);}
+}
+
+function startResendTimer(){
+  clearInterval(_resendInterval);
+  let t=60;
+  document.getElementById('resendTimer').textContent=t;
+  document.getElementById('resendBtn').disabled=true;
+  _resendInterval=setInterval(()=>{
+    t--;document.getElementById('resendTimer').textContent=t;
+    if(t<=0){clearInterval(_resendInterval);document.getElementById('resendBtn').disabled=false;}
+  },1000);
+}
+
+// ── Change Password ──
+function checkPwStrength(pw){
+  const bars=[document.getElementById('pwBar1'),document.getElementById('pwBar2'),document.getElementById('pwBar3')];
+  const lbl=document.getElementById('pwStrLabel');
+  let score=0;
+  if(pw.length>=8)score++;
+  if(/[A-Z]/.test(pw)&&/[a-z]/.test(pw))score++;
+  if(/\d/.test(pw)&&/[!@#$%^&*]/.test(pw))score++;
+  const colors=['#b83232','#d4891a','#10b981'];
+  const labels=['Weak','Good','Strong'];
+  bars.forEach((b,i)=>{b.style.background=i<score?colors[score-1]:'#1a2f46';});
+  lbl.textContent=score>0?labels[score-1]:'';
+  lbl.style.color=score>0?colors[score-1]:'#5c7898';
+}
+
+async function doChangePw(){
+  const btn=document.getElementById('pwBtn');
+  const errEl=document.getElementById('pwErr');
+  errEl.style.display='none';
+  const pw=document.getElementById('newPw').value;
+  const conf=document.getElementById('confirmPw').value;
+  if(pw!==conf){showAuthErr(errEl,'Passwords do not match.');return;}
+  btn.disabled=true;btn.textContent='Saving…';
+  try{
+    await api('/auth/change-password','POST',{username:_pendingUsername,new_password:pw});
+    currentUser.must_change_password=false;
+    showAuthedUI();loadExcelData(false);
+  }catch(e){showAuthErr(errEl,e.message);}
+  finally{btn.disabled=false;btn.textContent='Set Password & Continue';}
+}
+
+// ── Logout ──
+async function doLogout(){
+  try{await api('/auth/logout','POST');}catch(e){}
+  authToken='';currentUser=null;
+  localStorage.removeItem('sc_token');
+  document.getElementById('userBadge').innerHTML='';
+  document.getElementById('userFullName').textContent='';
+  document.getElementById('logoutBtn').style.display='none';
+  document.getElementById('accessBanner').classList.add('hidden');
+  document.getElementById('agentBtn').style.display='none';
+  document.getElementById('agentPanel').style.display='none';
+  document.getElementById('dashboardScreen').classList.add('hidden');
+  showAuthScreen('login');
+}
+
+function showAuthErr(el,msg){el.textContent=msg;el.style.display='';}
+
+// ═══════════════════════════════════════════════
+// ADMIN PANEL
+// ═══════════════════════════════════════════════
+let adminTab='users';
+let adminUsers=[];
+
+async function loadAdminUsers(){
+  try{const r=await api('/admin/users');adminUsers=r.users;}
+  catch(e){console.error(e);}
+}
+
+function renderAdminPanel(){
+  return `<div>
+    <div class="admin-tabs">
+      <button class="admin-tab${adminTab==='users'?' active':''}" onclick="setAdminTab('users')">👥 Users</button>
+      <button class="admin-tab${adminTab==='audit'?' active':''}" onclick="setAdminTab('audit')">📋 Audit Log</button>
+      <button class="admin-tab${adminTab==='matrix'?' active':''}" onclick="setAdminTab('matrix')">🔐 Access Matrix</button>
+    </div>
+    <div id="adminContent">Loading…</div>
+  </div>`;
+}
+
+function setAdminTab(t){adminTab=t;renderContent();setTimeout(loadAdminTabContent,0);}
+
+async function loadAdminTabContent(){
+  const el=document.getElementById('adminContent');
+  if(!el)return;
+  if(adminTab==='users'){
+    await loadAdminUsers();
+    el.innerHTML=renderUsersTab();
+  }else if(adminTab==='audit'){
+    try{const r=await api('/admin/audit?limit=100');el.innerHTML=renderAuditTab(r.entries);}
+    catch(e){el.innerHTML='<div style="color:#f08080">Failed to load audit log.</div>';}
+  }else if(adminTab==='matrix'){
+    el.innerHTML=renderAccessMatrix();
+  }
+}
+
+function renderUsersTab(){
+  const TIER_OPTS=['admin','ceo','gm','director','manager','officer'];
+  let rows=adminUsers.map(u=>`
+    <tr>
+      <td><strong>${esc(u.full_name)}</strong><br><span style="color:#5c7898;font-size:11px">${esc(u.username)}</span></td>
+      <td><span class="tier-badge tier-${u.tier}">${TIER_LABELS[u.tier]||u.tier}</span></td>
+      <td style="font-size:11px">${esc((u.divisions||[]).join(', '))}</td>
+      <td><span style="color:${u.active?'#10b981':'#b83232'}">${u.active?'Active':'Inactive'}</span></td>
+      <td style="font-size:11px;color:#5c7898">${u.last_login?new Date(u.last_login).toLocaleDateString('en-GB'):'Never'}</td>
+      <td style="display:flex;gap:6px">
+        <button class="btn-sm btn-danger" onclick="toggleUserActive('${esc(u.username)}','${u.active}')">${u.active?'Deactivate':'Activate'}</button>
+        <button class="btn-sm btn-primary" onclick="showResetPwModal('${esc(u.username)}')">Reset PW</button>
+      </td>
+    </tr>`).join('');
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:14px;font-weight:700">${adminUsers.length} Users</div>
+      <button class="btn-sm btn-primary" onclick="showAddUserModal()">+ Add User</button>
+    </div>
+    <div class="tbl-wrap"><table class="user-table" style="width:100%">
+      <thead><tr><th>User</th><th>Tier</th><th>Divisions</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+}
+
+function renderAuditTab(entries){
+  if(!entries||!entries.length) return '<div style="color:#5c7898;padding:20px">No audit entries.</div>';
+  const ACTION_COLORS={LOGIN_SUCCESS:'#10b981',LOGIN_FAILED:'#b83232',LOGOUT:'#5c7898',
+    '2FA_SUCCESS':'#10b981','2FA_FAILED':'#b83232',USER_CREATED:'#3b82f6',
+    USER_DEACTIVATED:'#b83232',USER_ACTIVATED:'#10b981',PASSWORD_CHANGED:'#d4891a',AGENT_QUERY:'#8b5cf6'};
+  const rows=entries.map(e=>`
+    <tr>
+      <td style="font-size:11px;color:#5c7898;white-space:nowrap">${new Date(e.timestamp).toLocaleString('en-GB')}</td>
+      <td><span style="font-size:11px;font-weight:700;color:${ACTION_COLORS[e.action]||'#5c7898'}">${e.action}</span></td>
+      <td style="font-size:12px">${esc(e.username)}</td>
+      <td style="font-size:11px;color:#5c7898">${JSON.stringify(e.details||{})}</td>
+    </tr>`).join('');
+  return `<div class="tbl-wrap"><table style="width:100%">
+    <thead><tr><th>Time</th><th>Action</th><th>User</th><th>Details</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+function renderAccessMatrix(){
+  const tiers=['officer','manager','director','gm','admin'];
+  const modules=[
+    {name:'Purchases — Costs & Pricing',levels:[0,0,1,1,1]},
+    {name:'Purchases — Vendor Details',levels:[0,0,1,1,1]},
+    {name:'Purchases — Stage & Status',levels:[0,1,1,1,1]},
+    {name:'Shipments — Transit & ETA',levels:[1,1,1,1,1]},
+    {name:'Shipments — Costs & Freight',levels:[0,0,1,1,1]},
+    {name:'Shipments — Customs & Duties',levels:[0,0,0,1,1]},
+    {name:'Escalations — All Fields',levels:[1,1,1,1,1]},
+    {name:'Deliveries — All Fields',levels:[1,1,1,1,1]},
+    {name:'Admin Panel',levels:[0,0,0,0,1]},
+  ];
+  const headers=tiers.map(t=>`<th style="text-align:center"><span class="tier-badge tier-${t}">${TIER_LABELS[t]}</span></th>`).join('');
+  const rows=modules.map(m=>`<tr><td style="font-size:12px;font-weight:600">${m.name}</td>${m.levels.map(l=>`<td style="text-align:center">${l?'<span style="color:#10b981;font-size:16px">✓</span>':'<span style="color:#b83232;font-size:16px">✗</span>'}</td>`).join('')}</tr>`).join('');
+  return `<div class="tbl-wrap"><table style="width:100%"><thead><tr><th>Module / Field</th>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+async function toggleUserActive(username,currentlyActive){
+  const active=currentlyActive==='true'||currentlyActive===true;
+  try{
+    await api(`/admin/users/${username}/toggle-active`,'POST');
+    await loadAdminUsers();
+    document.getElementById('adminContent').innerHTML=renderUsersTab();
+  }catch(e){alert('Error: '+e.message);}
+}
+
+function showAddUserModal(){
+  const TIER_OPTS=['ceo','gm','director','manager','officer'];
+  const divChecks=DIVISIONS.filter(d=>d!=='Consolidated View').map(d=>`<label class="div-check"><input type="checkbox" value="${esc(d)}" name="newDiv"> ${esc(d)}</label>`).join('');
+  const html=`<div class="modal-overlay" id="addUserModal" onclick="if(event.target===this)this.remove()">
+    <div class="modal-card">
+      <div class="modal-title">Add New User</div>
+      <div class="form-row"><label>Full Name</label><input id="nu_name" type="text"></div>
+      <div class="form-row"><label>Username</label><input id="nu_user" type="text"></div>
+      <div class="form-row"><label>Telegram ID</label><input id="nu_tgid" type="number"></div>
+      <div class="form-row"><label>Initial Password</label><input id="nu_pw" type="text" value="Welcome@2026"></div>
+      <div class="form-row"><label>Tier</label><select id="nu_tier">${TIER_OPTS.map(t=>`<option value="${t}">${TIER_LABELS[t]}</option>`).join('')}</select></div>
+      <div class="form-row"><label>Divisions</label><div class="div-checkboxes">${divChecks}</div></div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button class="btn-sm btn-primary" style="flex:1;padding:10px" onclick="submitAddUser()">Create User</button>
+        <button class="btn-sm" style="flex:1;padding:10px;background:#1a2f46;color:#5c7898;border:none;cursor:pointer" onclick="document.getElementById('addUserModal').remove()">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function submitAddUser(){
+  const name=document.getElementById('nu_name').value.trim();
+  const username=document.getElementById('nu_user').value.trim();
+  const tgid=parseInt(document.getElementById('nu_tgid').value);
+  const pw=document.getElementById('nu_pw').value;
+  const tier=document.getElementById('nu_tier').value;
+  const divs=Array.from(document.querySelectorAll('input[name="newDiv"]:checked')).map(c=>c.value);
+  if(!name||!username||!tgid||!pw||!divs.length){alert('Please fill all fields and select at least one division.');return;}
+  try{
+    await api('/admin/users','POST',{username,password:pw,full_name:name,telegram_id:tgid,tier,divisions:divs});
+    document.getElementById('addUserModal').remove();
+    await loadAdminUsers();
+    document.getElementById('adminContent').innerHTML=renderUsersTab();
+  }catch(e){alert('Error: '+e.message);}
+}
+
+function showResetPwModal(username){
+  const html=`<div class="modal-overlay" id="resetPwModal" onclick="if(event.target===this)this.remove()">
+    <div class="modal-card">
+      <div class="modal-title">Reset Password — ${esc(username)}</div>
+      <div class="form-row"><label>Temporary Password</label><input id="rp_pw" type="text" value="Welcome@2026"></div>
+      <div style="font-size:11px;color:#5c7898;margin-bottom:16px">User will be required to change on next login.</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-sm btn-primary" style="flex:1;padding:10px" onclick="submitResetPw('${esc(username)}')">Reset Password</button>
+        <button class="btn-sm" style="flex:1;padding:10px;background:#1a2f46;color:#5c7898;border:none;cursor:pointer" onclick="document.getElementById('resetPwModal').remove()">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function submitResetPw(username){
+  const pw=document.getElementById('rp_pw').value;
+  try{
+    await api(`/admin/users/${username}/reset-password`,'POST',{temp_password:pw});
+    document.getElementById('resetPwModal').remove();
+    alert('Password reset. User will be prompted to change on next login.');
+  }catch(e){alert('Error: '+e.message);}
+}
+
+// Load admin content after tab renders
+const _origSetTab=setTab;
+function setTab(t){
+  _origSetTab(t);
+  if(t==='admin') setTimeout(loadAdminTabContent,0);
+}
+
+// ═══════════════════════════════════════════════
+// AI AGENT TAB + FLOATING PANEL
+// ═══════════════════════════════════════════════
+let agentOpen=false;
+
+function renderAgentTab(){
+  return `<div style="max-width:720px;margin:0 auto">
+    <div style="margin-bottom:20px">
+      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:6px">🤖 Supply Chain AI Assistant</div>
+      <div style="font-size:12px;color:#5c7898">Ask questions about your supply chain data. Answers are filtered to your access level (${TIER_LABELS[currentUser?.tier]||''}).</div>
+    </div>
+    <div style="background:#0C1220;border:1px solid #1a2f46;border-radius:12px;overflow:hidden">
+      <div id="tabAgentMessages" style="min-height:360px;max-height:480px;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <div class="agent-msg bot" style="max-width:100%">Hello! I can answer questions about your supply chain data based on your access level. What would you like to know?</div>
+      </div>
+      <div style="border-top:1px solid #1a2f46;padding:14px;display:flex;gap:10px">
+        <input class="agent-input" id="tabAgentInput" placeholder="e.g. How many shipments are in customs? What needs my approval?" onkeydown="if(event.key==='Enter')sendTabAgentMsg()" style="flex:1">
+        <button class="agent-send" onclick="sendTabAgentMsg()">➤</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleAgent(){
+  agentOpen=!agentOpen;
+  document.getElementById('agentPanel').style.display=agentOpen?'flex':'none';
+  if(agentOpen) document.getElementById('agentInput').focus();
+}
+
+async function sendAgentMsg(){
+  const input=document.getElementById('agentInput');
+  const q=input.value.trim();if(!q)return;
+  input.value='';
+  appendAgentMsg('agentMessages',q,'user');
+  const thinking=appendAgentMsg('agentMessages','Thinking…','bot thinking');
+  try{
+    const r=await api('/agent/query','POST',{question:q});
+    thinking.className='agent-msg bot';
+    thinking.innerHTML=r.answer.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  }catch(e){thinking.className='agent-msg bot';thinking.textContent='Error: '+e.message;}
+  const msgs=document.getElementById('agentMessages');
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+async function sendTabAgentMsg(){
+  const input=document.getElementById('tabAgentInput');
+  if(!input)return;
+  const q=input.value.trim();if(!q)return;
+  input.value='';
+  appendAgentMsg('tabAgentMessages',q,'user');
+  const thinking=appendAgentMsg('tabAgentMessages','Thinking…','bot thinking');
+  try{
+    const r=await api('/agent/query','POST',{question:q});
+    thinking.className='agent-msg bot';
+    thinking.style.maxWidth='100%';
+    thinking.innerHTML=r.answer.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  }catch(e){thinking.className='agent-msg bot';thinking.textContent='Error: '+e.message;}
+  const msgs=document.getElementById('tabAgentMessages');
+  if(msgs) msgs.scrollTop=msgs.scrollHeight;
+}
+
+function appendAgentMsg(containerId,text,cls){
+  const container=document.getElementById(containerId);
+  if(!container)return{className:''};
+  const el=document.createElement('div');
+  el.className='agent-msg '+cls;
+  el.textContent=text;
+  container.appendChild(el);
+  container.scrollTop=container.scrollHeight;
+  return el;
+}
 </script>
 </body>
 </html>
