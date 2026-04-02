@@ -323,7 +323,7 @@ let _resendInterval = null;
 // ═══════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════
-const DIVISIONS = ["Consolidated View","Delmon Furniture Factory","Motor & Marine Division","Home Appliances Distribution","Home Appliances Service Center","Tire & Allied Business","AJK Unity","Pearl Craft"];
+const DIVISIONS = ["Consolidated View","Delmon Furniture Factory","Motor & Marine Division","Home Appliances Distribution","Home Appliances Service Center","Tire & Allied Business","AJK Unity","Pearl Craft","HVAC & Project Solutions","Education"];
 const PROJECT_DIVISIONS = ["Delmon Furniture Factory","AJK Unity","Pearl Craft"];
 const LOCAL_STAGES = ["PR Received","Sourcing / Quotation","Pending Approval","PO Issued","Supplier Confirmation","In Transit / Out for Delivery","Received at Warehouse","Closed / Completed","Cancelled"];
 const INTL_STAGES = ["PR Received","Sourcing / Quotation","Pending Approval","PO Issued","Supplier Confirmation / PI Received","Payment Processing","Production / Manufacturing","Ready for Shipment","Booking & Documentation","In Transit (Sea/Air)","Arrived at Port / Airport","Customs Clearance","Released & In Transit to Warehouse","Received at Warehouse","Closed / Completed"];
@@ -1544,7 +1544,8 @@ function renderUsersTab(){
       <td style="font-size:11px">${esc((u.divisions||[]).join(', '))}</td>
       <td><span style="color:${u.active?'#10b981':'#b83232'}">${u.active?'Active':'Inactive'}</span></td>
       <td style="font-size:11px;color:#5c7898">${u.last_login?new Date(u.last_login).toLocaleDateString('en-GB'):'Never'}</td>
-      <td style="display:flex;gap:6px">
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-sm btn-primary" onclick="showEditUserModal('${esc(u.username)}')">✏️ Edit</button>
         <button class="btn-sm btn-danger" onclick="toggleUserActive('${esc(u.username)}','${u.active}')">${u.active?'Deactivate':'Activate'}</button>
         <button class="btn-sm btn-primary" onclick="showResetPwModal('${esc(u.username)}')">Reset PW</button>
       </td>
@@ -1663,6 +1664,41 @@ async function submitResetPw(username){
     await api(`/admin/users/${username}/reset-password`,'POST',{temp_password:pw});
     document.getElementById('resetPwModal').remove();
     alert('Password reset. User will be prompted to change on next login.');
+  }catch(e){alert('Error: '+e.message);}
+}
+
+function showEditUserModal(username){
+  const u=adminUsers.find(x=>x.username===username);
+  if(!u){alert('User not found.');return;}
+  const TIER_OPTS=['ceo','gm','director','manager','officer','admin'];
+  const divChecks=DIVISIONS.filter(d=>d!=='Consolidated View').map(d=>`<label class="div-check"><input type="checkbox" value="${esc(d)}" name="editDiv"${(u.divisions||[]).includes(d)?' checked':''}> ${esc(d)}</label>`).join('');
+  const html=`<div class="modal-overlay" id="editUserModal" onclick="if(event.target===this)this.remove()">
+    <div class="modal-card">
+      <div class="modal-title">Edit User — ${esc(u.full_name)}</div>
+      <div class="form-row"><label>Full Name</label><input id="eu_name" type="text" value="${esc(u.full_name)}"></div>
+      <div class="form-row"><label>Telegram ID</label><input id="eu_tgid" type="number" value="${u.telegram_id||''}"></div>
+      <div class="form-row"><label>Tier</label><select id="eu_tier">${TIER_OPTS.map(t=>`<option value="${t}"${u.tier===t?' selected':''}>${TIER_LABELS[t]}</option>`).join('')}</select></div>
+      <div class="form-row"><label>Divisions</label><div class="div-checkboxes">${divChecks}</div></div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button class="btn-sm btn-primary" style="flex:1;padding:10px" onclick="submitEditUser('${esc(username)}')">Save Changes</button>
+        <button class="btn-sm" style="flex:1;padding:10px;background:#1a2f46;color:#5c7898;border:none;cursor:pointer" onclick="document.getElementById('editUserModal').remove()">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function submitEditUser(username){
+  const name=document.getElementById('eu_name').value.trim();
+  const tgid=parseInt(document.getElementById('eu_tgid').value);
+  const tier=document.getElementById('eu_tier').value;
+  const divs=Array.from(document.querySelectorAll('input[name="editDiv"]:checked')).map(c=>c.value);
+  if(!name||!tgid||!divs.length){alert('Please fill all fields and select at least one division.');return;}
+  try{
+    await api(`/admin/users/${username}`,'PUT',{full_name:name,telegram_id:tgid,tier,divisions:divs});
+    document.getElementById('editUserModal').remove();
+    await loadAdminUsers();
+    document.getElementById('adminContent').innerHTML=renderUsersTab();
   }catch(e){alert('Error: '+e.message);}
 }
 
