@@ -127,7 +127,7 @@ select{padding:5px 10px;border-radius:6px;border:1px solid var(--border-color);b
 .auth-btn{width:100%;padding:13px;border-radius:8px;border:none;cursor:pointer;font-size:14px;font-weight:700;background:#3B82F6;color:#fff;margin-top:8px;transition:background 0.15s}
 .auth-btn:hover{background:#2563eb}
 .auth-btn:disabled{background:#1a2f46;color:#5c7898;cursor:not-allowed}
-.auth-err{background:#b8323218;border:1px solid #b8323244;border-radius:6px;padding:10px 14px;font-size:12px;color:#f08080;margin-bottom:14px;display:none}
+.auth-err{background:#b8323240;border:2px solid #b83232;border-radius:8px;padding:14px 18px;font-size:14px;font-weight:600;color:#ff8080;margin-bottom:14px;display:none;text-align:center}
 .auth-footer{text-align:center;font-size:11px;color:#3a5068;margin-top:20px}
 .otp-boxes{display:flex;gap:10px;justify-content:center;margin:24px 0}
 .otp-box{width:50px;height:58px;border-radius:8px;border:1px solid #1a2f46;background:#060A10;color:#fff;font-size:24px;font-weight:700;text-align:center;outline:none;transition:border-color 0.15s}
@@ -1389,7 +1389,7 @@ async function doLogin(){
   const username=document.getElementById('loginUser').value.trim();
   const password=document.getElementById('loginPass').value;
   if(!username||!password){showAuthErr(errEl,'Please enter username and password.');return;}
-  btn.disabled=true;btn.textContent='Signing in…';
+  btn.disabled=true;btn.textContent='⏳ Sending code to Telegram…';
   try{
     const r=await api('/auth/login','POST',{username,password});
     _pendingUsername=username;
