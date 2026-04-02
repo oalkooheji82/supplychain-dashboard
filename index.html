@@ -1251,7 +1251,10 @@ function renderProjectBar(){
 function renderTabs(){
   const {es}=getFiltered();
   const openEsc=es.filter(d=>d.status!=='Resolved'&&d.status!=='Closed');
-  const tabs=[{id:'overview',label:'Overview'},{id:'local',label:'Local Purchases'},{id:'international',label:'International'},{id:'shipments',label:'Shipments'},{id:'deliveries',label:'Deliveries'},{id:'escalations',label:'Escalations'},...(currentUser&&currentUser.role==='admin'?[{id:'admin',label:'⚙️ Admin'}]:[]),...(currentUser?[{id:'agent',label:'🤖 AI Agent'}]:[]) ];
+  const allTabs=[{id:'overview',label:'Overview'},{id:'local',label:'Local Purchases'},{id:'international',label:'International'},{id:'shipments',label:'Shipments'},{id:'deliveries',label:'Deliveries'},{id:'escalations',label:'Escalations'},...(currentUser&&currentUser.role==='admin'?[{id:'admin',label:'⚙️ Admin'}]:[]),...(currentUser?[{id:'agent',label:'🤖 AI Agent'}]:[])];
+  const lvlT=userLevel();
+  const allowedTabs=currentUser&&lvlT<=2&&currentUser.tabs&&currentUser.tabs.length?new Set([...currentUser.tabs,'agent',...(currentUser.role==='admin'?['admin']:[])]):null;
+  const tabs=allowedTabs?allTabs.filter(t=>allowedTabs.has(t.id)):allTabs;
   let h='';
   tabs.forEach(t=>{
     h+='<button class="tab-btn'+(t.id===activeTab?' active':'')+'" onclick="setTab(\''+t.id+'\')">'+t.label;
@@ -1611,6 +1614,12 @@ async function toggleUserActive(username,currentlyActive){
   }catch(e){alert('Error: '+e.message);}
 }
 
+const TAB_OPTS=[{id:'overview',label:'Overview'},{id:'local',label:'Local Purchases'},{id:'international',label:'International'},{id:'shipments',label:'Shipments'},{id:'deliveries',label:'Deliveries'},{id:'escalations',label:'Escalations'}];
+
+function tabChecks(name,selected=[]){
+  return TAB_OPTS.map(t=>`<label class="div-check"><input type="checkbox" value="${t.id}" name="${name}"${selected.includes(t.id)?' checked':''}> ${t.label}</label>`).join('');
+}
+
 function showAddUserModal(){
   const TIER_OPTS=['ceo','gm','director','manager','officer'];
   const divChecks=DIVISIONS.filter(d=>d!=='Consolidated View').map(d=>`<label class="div-check"><input type="checkbox" value="${esc(d)}" name="newDiv"> ${esc(d)}</label>`).join('');
@@ -1623,6 +1632,7 @@ function showAddUserModal(){
       <div class="form-row"><label>Initial Password</label><input id="nu_pw" type="text" value="Welcome@2026"></div>
       <div class="form-row"><label>Tier</label><select id="nu_tier">${TIER_OPTS.map(t=>`<option value="${t}">${TIER_LABELS[t]}</option>`).join('')}</select></div>
       <div class="form-row"><label>Divisions</label><div class="div-checkboxes">${divChecks}</div></div>
+      <div class="form-row"><label>Tab Access <span style="font-size:11px;color:#5c7898">(Officer &amp; Manager only — Directors+ see all)</span></label><div class="div-checkboxes">${tabChecks('newTab')}</div></div>
       <div style="display:flex;gap:10px;margin-top:20px">
         <button class="btn-sm btn-primary" style="flex:1;padding:10px" onclick="submitAddUser()">Create User</button>
         <button class="btn-sm" style="flex:1;padding:10px;background:#1a2f46;color:#5c7898;border:none;cursor:pointer" onclick="document.getElementById('addUserModal').remove()">Cancel</button>
@@ -1639,9 +1649,10 @@ async function submitAddUser(){
   const pw=document.getElementById('nu_pw').value;
   const tier=document.getElementById('nu_tier').value;
   const divs=Array.from(document.querySelectorAll('input[name="newDiv"]:checked')).map(c=>c.value);
+  const tabs=Array.from(document.querySelectorAll('input[name="newTab"]:checked')).map(c=>c.value);
   if(!name||!username||!tgid||!pw||!divs.length){alert('Please fill all fields and select at least one division.');return;}
   try{
-    await api('/admin/users','POST',{username,password:pw,full_name:name,telegram_id:tgid,tier,divisions:divs});
+    await api('/admin/users','POST',{username,password:pw,full_name:name,telegram_id:tgid,tier,divisions:divs,tabs});
     document.getElementById('addUserModal').remove();
     await loadAdminUsers();
     document.getElementById('adminContent').innerHTML=renderUsersTab();
@@ -1684,6 +1695,7 @@ function showEditUserModal(username){
       <div class="form-row"><label>Telegram ID</label><input id="eu_tgid" type="number" value="${u.telegram_id||''}"></div>
       <div class="form-row"><label>Tier</label><select id="eu_tier">${TIER_OPTS.map(t=>`<option value="${t}"${u.tier===t?' selected':''}>${TIER_LABELS[t]}</option>`).join('')}</select></div>
       <div class="form-row"><label>Divisions</label><div class="div-checkboxes">${divChecks}</div></div>
+      <div class="form-row"><label>Tab Access <span style="font-size:11px;color:#5c7898">(Officer &amp; Manager only — Directors+ see all)</span></label><div class="div-checkboxes">${tabChecks('editTab',u.tabs||[])}</div></div>
       <div style="display:flex;gap:10px;margin-top:20px">
         <button class="btn-sm btn-primary" style="flex:1;padding:10px" onclick="submitEditUser('${esc(username)}')">Save Changes</button>
         <button class="btn-sm" style="flex:1;padding:10px;background:#1a2f46;color:#5c7898;border:none;cursor:pointer" onclick="document.getElementById('editUserModal').remove()">Cancel</button>
@@ -1698,9 +1710,10 @@ async function submitEditUser(username){
   const tgid=parseInt(document.getElementById('eu_tgid').value);
   const tier=document.getElementById('eu_tier').value;
   const divs=Array.from(document.querySelectorAll('input[name="editDiv"]:checked')).map(c=>c.value);
+  const tabs=Array.from(document.querySelectorAll('input[name="editTab"]:checked')).map(c=>c.value);
   if(!name||!tgid||!divs.length){alert('Please fill all fields and select at least one division.');return;}
   try{
-    await api(`/admin/users/${username}`,'PUT',{full_name:name,telegram_id:tgid,tier,divisions:divs});
+    await api(`/admin/users/${username}`,'PUT',{full_name:name,telegram_id:tgid,tier,divisions:divs,tabs});
     document.getElementById('editUserModal').remove();
     await loadAdminUsers();
     document.getElementById('adminContent').innerHTML=renderUsersTab();
