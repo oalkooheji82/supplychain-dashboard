@@ -1270,7 +1270,7 @@ function renderContent(){
 // ═══════════════════════════════════════════════
 function setDivision(d){activeDivision=d;activeTab='overview';projectFilter='All';shipDirFilter='All';shipIncFilter='All';delayFilter='All';dateFrom='';dateTo='';document.getElementById('dateFrom').value='';document.getElementById('dateTo').value='';['week','month','quarter'].forEach(p=>{const b=document.getElementById('preset-'+p);if(b)b.classList.remove('active');});renderDivBar();renderTabs();renderContent();}
 function setProject(p){projectFilter=p;renderProjectBar();renderContent();}
-function setTab(t){activeTab=t;renderTabs();renderContent();}
+function setTab(t){activeTab=t;renderTabs();renderContent();if(t==='admin')setTimeout(loadAdminTabContent,0);}
 function setShipDir(f){shipDirFilter=f;renderContent();}
 function setShipInc(f){shipIncFilter=f;renderContent();}
 function setDelayF(f){delayFilter=f;renderContent();}
@@ -1641,12 +1641,7 @@ async function submitResetPw(username){
   }catch(e){alert('Error: '+e.message);}
 }
 
-// Load admin content after tab renders
-const _origSetTab=setTab;
-function setTab(t){
-  _origSetTab(t);
-  if(t==='admin') setTimeout(loadAdminTabContent,0);
-}
+// Admin content loaded via setTab
 
 // ═══════════════════════════════════════════════
 // AI AGENT TAB + FLOATING PANEL
