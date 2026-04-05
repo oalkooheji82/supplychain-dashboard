@@ -731,6 +731,52 @@ function getFiltered(){
 }
 
 // ═══════════════════════════════════════════════
+// SHARED SHIPMENT MINI CHARTS (all tabs)
+// ═══════════════════════════════════════════════
+function renderShipmentMiniCharts(sh, lvl, prefix){
+  if(!sh||sh.length===0) return '';
+  const SHIP_STATUS_COLORS={'Booking':'#4e6580','Loaded / Departed':'#2d6fd4','In Transit':'#0d9e80','Transshipment':'#0891b2','Arrived at Port':'#0c7fb8','Customs Clearance':'#d4891a','Released':'#1a9e55','Delivered':'#14784a','Delayed':'#b83232','Rerouted':'#c0612e'};
+  const FALLBACK=['#6366f1','#a855f7','#ec4899','#14b8a6','#f97316','#84cc16','#06b6d4','#8b5cf6'];
+  const impSh=sh.filter(d=>d.direction==='Import');
+  const expSh=sh.filter(d=>d.direction==='Export');
+  const statuses=[...new Set(sh.map(d=>d.status).filter(Boolean))].sort((a,b)=>{
+    const ord=Object.keys(SHIP_STATUS_COLORS);
+    const ia=ord.indexOf(a),ib=ord.indexOf(b);
+    if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
+  });
+  let fbI=0;const getC=s=>SHIP_STATUS_COLORS[s]||(FALLBACK[fbI++%FALLBACK.length]);
+  const statusColors=statuses.map(s=>getC(s));
+  const impCounts=statuses.map(s=>impSh.filter(d=>d.status===s).length);
+  const expCounts=statuses.map(s=>expSh.filter(d=>d.status===s).length);
+  const chartH=Math.max(180,statuses.length*32)+'px';
+
+  let h='<div class="section-title" style="margin-top:24px;margin-bottom:10px;font-size:13px;font-weight:700;color:#5c7898;letter-spacing:.06em;text-transform:uppercase">Shipments Summary</div>';
+  h+='<div class="charts-row">';
+
+  // Status × Import/Export grouped bar
+  h+='<div class="chart-wrap"><div class="chart-title">Shipments by Status — Import vs Export</div><div style="height:'+chartH+';position:relative"><canvas id="'+prefix+'-sh-dir-status"></canvas></div></div>';
+  queueChart(prefix+'-sh-dir-status',{type:'bar',data:{labels:statuses,datasets:[
+    {label:'Import',data:impCounts,backgroundColor:'#2d6fd4',borderRadius:3,borderWidth:0},
+    {label:'Export',data:expCounts,backgroundColor:'#c0612e',borderRadius:3,borderWidth:0}
+  ]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:true,labels:{color:'#dce8f5',font:{size:11}}},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.raw} shipment${ctx.raw!==1?'s':''}`}}},scales:{x:{stacked:false,ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
+
+  // Clearing cost by status — level 4+ only (auth matrix)
+  if(lvl>=4){
+    const costByStatus=statuses.map((s,i)=>({s,cost:sh.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0),impCost:impSh.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0),expCost:expSh.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0),color:statusColors[i]})).filter(x=>x.cost>0);
+    if(costByStatus.length>0){
+      h+='<div class="chart-wrap"><div class="chart-title">Clearing Cost by Status — Import vs Export (BHD)</div><div style="height:'+Math.max(180,costByStatus.length*32)+'px;position:relative"><canvas id="'+prefix+'-sh-clear-dir"></canvas></div></div>';
+      queueChart(prefix+'-sh-clear-dir',{type:'bar',data:{labels:costByStatus.map(x=>x.s),datasets:[
+        {label:'Import',data:costByStatus.map(x=>x.impCost),backgroundColor:'#2d6fd4',borderRadius:3,borderWidth:0},
+        {label:'Export',data:costByStatus.map(x=>x.expCost),backgroundColor:'#c0612e',borderRadius:3,borderWidth:0}
+      ]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:true,labels:{color:'#dce8f5',font:{size:11}}},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: BHD ${fmtNum(ctx.raw)}`}}},scales:{x:{stacked:false,ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
+    }
+  }
+
+  h+='</div>';
+  return h;
+}
+
+// ═══════════════════════════════════════════════
 // OVERVIEW
 // ═══════════════════════════════════════════════
 function renderOverview(lp,ip,sh,es,isCon){
@@ -786,17 +832,7 @@ function renderOverview(lp,ip,sh,es,isCon){
     h+='<div class="chart-wrap"><div class="chart-title">Active Spend Distribution</div><div style="height:220px;position:relative"><canvas id="chart-spend"></canvas></div></div>';
     queueChart('chart-spend',{type:'bar',data:{labels:['Local Purchases (BHD)','International (USD)'],datasets:[{data:[activeLVal,activeIVal],backgroundColor:['#0d9e80','#c0612e'],borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const pct=spendTotal>0?(ctx.raw/spendTotal*100).toFixed(1):'0';return[` Value: ${fmtNum(ctx.raw)}`,' Items: '+(ctx.dataIndex===0?activeL.length:activeI.length),' Share: '+pct+'%'];}}}},scales:{x:{ticks:{color:'#dce8f5',font:{size:11}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
   }
-  // Shipment status chart
-  if(sh.length>0){
-    const SHIP_STATUS_COLORS={'Booking':'#4e6580','Loaded / Departed':'#2d6fd4','In Transit':'#0d9e80','Transshipment':'#0891b2','Arrived at Port':'#0c7fb8','Customs Clearance':'#d4891a','Released':'#1a9e55','Delivered':'#14784a','Delayed':'#b83232','Rerouted':'#c0612e'};
-    const FALLBACK_COLORS=['#6366f1','#a855f7','#ec4899','#14b8a6','#f97316','#84cc16','#06b6d4','#8b5cf6'];
-    const dataStatuses=[...new Set(sh.map(d=>d.status).filter(Boolean))].sort((a,b)=>{const order=Object.keys(SHIP_STATUS_COLORS);const ia=order.indexOf(a),ib=order.indexOf(b);if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);});
-    let fbIdx=0;const getColor=s=>SHIP_STATUS_COLORS[s]||(FALLBACK_COLORS[fbIdx++%FALLBACK_COLORS.length]);
-    const dataCounts=dataStatuses.map(s=>sh.filter(d=>d.status===s).length);
-    const dataColors=dataStatuses.map(s=>getColor(s));
-    h+='<div class="chart-wrap"><div class="chart-title">Shipments by Status</div><div style="height:'+Math.max(180,dataStatuses.length*28)+'px;position:relative"><canvas id="chart-shipstatus"></canvas></div></div>';
-    queueChart('chart-shipstatus',{type:'bar',data:{labels:dataStatuses,datasets:[{data:dataCounts,backgroundColor:dataColors,borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw} shipment${ctx.raw!==1?'s':''}`}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
-  }
+  h+=renderShipmentMiniCharts(sh,lvl,'ov');
   h+='</div>';
 
   // Delay reasons
@@ -857,7 +893,7 @@ function renderOverview(lp,ip,sh,es,isCon){
 // ═══════════════════════════════════════════════
 // LOCAL PURCHASES
 // ═══════════════════════════════════════════════
-function renderLocal(data,isCon){
+function renderLocal(data,sh,isCon){
   const tabId='local';
   const cancelled=data.filter(d=>d.stage==='Cancelled');
   const active=data.filter(d=>d.stage!=='Closed / Completed'&&d.stage!=='Cancelled');
@@ -940,13 +976,14 @@ function renderLocal(data,isCon){
     ...(lvlL>=3?[{key:'cancellationReason',label:'Cancel Reason',type:'string'}]:[]),
   ];
   h+=dataTable(tabId,cols,data);
+  h+=renderShipmentMiniCharts(sh,lvlL,'lp');
   return h;
 }
 
 // ═══════════════════════════════════════════════
 // INTERNATIONAL PURCHASES
 // ═══════════════════════════════════════════════
-function renderIntl(data,isCon){
+function renderIntl(data,sh,isCon){
   const tabId='international';
   const active=data.filter(d=>d.stage!=='Closed / Completed');
   const aging=active.filter(d=>d.daysInStage>14);
@@ -1010,6 +1047,7 @@ function renderIntl(data,isCon){
     ...(lvlI>=2?[{key:'remarks',label:'Remarks',type:'string'}]:[]),
   ];
   h+=dataTable(tabId,cols,data);
+  h+=renderShipmentMiniCharts(sh,lvlIM,'ip');
   return h;
 }
 
@@ -1040,25 +1078,7 @@ function renderShipments(shAll,shipF,isCon){
   // Charts
   if(shAll.length>0){
     h+='<div class="charts-row">';
-    const SHIP_STATUS_COLORS={'Booking':'#4e6580','Loaded / Departed':'#2d6fd4','In Transit':'#0d9e80','Transshipment':'#0891b2','Arrived at Port':'#0c7fb8','Customs Clearance':'#d4891a','Released':'#1a9e55','Delivered':'#14784a','Delayed':'#b83232','Rerouted':'#c0612e'};
-    const FALLBACK_COLORS=['#6366f1','#a855f7','#ec4899','#14b8a6','#f97316','#84cc16','#06b6d4','#8b5cf6'];
-    const allStatuses=[...new Set(shAll.map(d=>d.status).filter(Boolean))].sort((a,b)=>{const order=Object.keys(SHIP_STATUS_COLORS);const ia=order.indexOf(a),ib=order.indexOf(b);if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);});
-    let fbIdx2=0;const getColorS=s=>SHIP_STATUS_COLORS[s]||(FALLBACK_COLORS[fbIdx2++%FALLBACK_COLORS.length]);
-    const allCounts=allStatuses.map(s=>shAll.filter(d=>d.status===s).length);
-    const allColors=allStatuses.map(s=>getColorS(s));
-    const shStatusCostMap={};allStatuses.forEach(s=>{shStatusCostMap[s]=shAll.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0);});
-    h+='<div class="chart-wrap"><div class="chart-title">All Shipments by Status</div><div style="height:'+Math.max(180,allStatuses.length*28)+'px;position:relative"><canvas id="chart-sh-status"></canvas></div></div>';
-    queueChart('chart-sh-status',{type:'bar',data:{labels:allStatuses,datasets:[{data:allCounts,backgroundColor:allColors,borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>lvlS>=4?[' Shipments: '+ctx.raw,' Clearing: BHD '+fmtNum(shStatusCostMap[allStatuses[ctx.dataIndex]])]:[' Shipments: '+ctx.raw]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
-    // Import vs Export donut
-    h+='<div class="chart-wrap"><div class="chart-title">Import vs Export</div><div style="height:220px;position:relative"><canvas id="chart-sh-dir"></canvas></div></div>';
-    const impVal=impSh.reduce((s,d)=>s+(d.cargoValue||0),0);const expVal=expSh.reduce((s,d)=>s+(d.cargoValue||0),0);
-    queueChart('chart-sh-dir',{type:'bar',data:{labels:['Import','Export'],datasets:[{data:[impSh.length,expSh.length],backgroundColor:['#2d6fd4','#c0612e'],borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>lvlS>=3?[' Shipments: '+ctx.raw,' Cargo Value: BHD '+fmtNum(ctx.dataIndex===0?impVal:expVal)]:[' Shipments: '+ctx.raw]}}},scales:{x:{ticks:{color:'#dce8f5',font:{size:12}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
-    // Clearing cost by status (level 4+)
-    if(lvlS>=4){const clearByStatus=allStatuses.map((s,i)=>({s,count:allCounts[i],cost:shAll.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0),color:allColors[i]})).filter(x=>x.cost>0);
-    if(clearByStatus.length>0){
-      h+='<div class="chart-wrap"><div class="chart-title">Clearing Cost by Status (BHD)</div><div style="height:220px;position:relative"><canvas id="chart-sh-clear"></canvas></div></div>';
-      queueChart('chart-sh-clear',{type:'bar',data:{labels:clearByStatus.map(x=>x.s),datasets:[{data:clearByStatus.map(x=>x.cost),backgroundColor:clearByStatus.map(x=>x.color),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' BHD '+fmtNum(ctx.raw),' '+clearByStatus[ctx.dataIndex].count+' shipments']}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
-    }}
+    // Incoterms distribution (level 3+) — shown before shared charts
     // Incoterms distribution (level 3+)
     if(lvlS>=3){const incoList=[...new Set(shAll.map(d=>d.incoterms).filter(Boolean))].sort();
     if(incoList.length>0){
@@ -1070,6 +1090,7 @@ function renderShipments(shAll,shipF,isCon){
     }}
     h+='</div>';
   }
+  h+=renderShipmentMiniCharts(shAll,lvlS,'sh');
 
   // Filters
   h+='<div class="filter-bar"><div class="filter-group"><span class="filter-label">Direction:</span>';
@@ -1127,7 +1148,7 @@ function renderShipments(shAll,shipF,isCon){
 // ═══════════════════════════════════════════════
 // DELIVERIES
 // ═══════════════════════════════════════════════
-function renderDeliveries(data,isCon){
+function renderDeliveries(data,sh,isCon){
   const tabId='deliveries';
   const pending=data.filter(d=>d.status==='Pending');
   const partial=data.filter(d=>d.status==='Partial');
@@ -1171,12 +1192,13 @@ function renderDeliveries(data,isCon){
     {key:'remarks',label:'Remarks',type:'string'}
   ];
   h+=dataTable(tabId,cols,data);
+  h+=renderShipmentMiniCharts(sh,userLevel(),'del');
   return h;
 }
 
 // ESCALATIONS
 // ═══════════════════════════════════════════════
-function renderEscalations(data,isCon){
+function renderEscalations(data,sh,isCon){
   const tabId='escalations';
   const open=data.filter(d=>d.status!=='Resolved'&&d.status!=='Closed');
   const crit=data.filter(d=>d.impact==='Critical'&&d.status!=='Resolved');
@@ -1211,6 +1233,7 @@ function renderEscalations(data,isCon){
     {key:'status',label:'Status',type:'string',render:v=>{let bg='#2d6fd422',fg='#6ea8e8';if(v==='Escalated'){bg='#b8323222';fg='#b83232';}if(v==='Open'){bg='#d4891a22';fg='#d4891a';}return badge(v,bg,fg);}}
   ];
   h+=dataTable(tabId,cols,data);
+  h+=renderShipmentMiniCharts(sh,userLevel(),'esc');
   return h;
 }
 
@@ -1275,11 +1298,11 @@ function renderContent(){
   const del=filterByDiv(DATA.deliveries);
   let html='';
   if(activeTab==='overview') html=renderOverview(lp,ip,sh,es,isCon);
-  else if(activeTab==='local') html=renderLocal(lp,isCon);
-  else if(activeTab==='international') html=renderIntl(ip,isCon);
+  else if(activeTab==='local') html=renderLocal(lp,sh,isCon);
+  else if(activeTab==='international') html=renderIntl(ip,sh,isCon);
   else if(activeTab==='shipments') html=renderShipments(sh,shipF,isCon);
-  else if(activeTab==='deliveries') html=renderDeliveries(del,isCon);
-  else if(activeTab==='escalations') html=renderEscalations(es,isCon);
+  else if(activeTab==='deliveries') html=renderDeliveries(del,sh,isCon);
+  else if(activeTab==='escalations') html=renderEscalations(es,sh,isCon);
   else if(activeTab==='admin') html=renderAdminPanel();
   else if(activeTab==='agent') html=renderAgentTab();
   document.getElementById('dashContent').innerHTML=html;
