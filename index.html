@@ -788,12 +788,14 @@ function renderOverview(lp,ip,sh,es,isCon){
   }
   // Shipment status chart
   if(sh.length>0){
-    const SHIP_STATUS_COLORS={'Booking':'#4e6580','Loaded / Departed':'#2d6fd4','In Transit':'#0d9e80','Transshipment':'#0891b2','Arrived at Port':'#0c7fb8','Customs Clearance':'#d4891a','Released':'#1a9e55','Delivered':'#14784a','Delayed':'#b83232','Rerouted':'#d4891a'};
-    const allStatuses=Object.keys(SHIP_STATUS_COLORS);
-    const allCounts=allStatuses.map(s=>sh.filter(d=>d.status===s).length);
-    h+='<div class="chart-wrap"><div class="chart-title">Shipments by Status</div><div style="height:220px;position:relative"><canvas id="chart-shipstatus"></canvas></div></div>';
-    const nonZeroStatuses=allStatuses.filter((_,i)=>allCounts[i]>0);const nonZeroCounts=allCounts.filter(c=>c>0);
-    queueChart('chart-shipstatus',{type:'bar',data:{labels:nonZeroStatuses,datasets:[{data:nonZeroCounts,backgroundColor:nonZeroStatuses.map(s=>SHIP_STATUS_COLORS[s]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw} shipment${ctx.raw!==1?'s':''}`}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
+    const SHIP_STATUS_COLORS={'Booking':'#4e6580','Loaded / Departed':'#2d6fd4','In Transit':'#0d9e80','Transshipment':'#0891b2','Arrived at Port':'#0c7fb8','Customs Clearance':'#d4891a','Released':'#1a9e55','Delivered':'#14784a','Delayed':'#b83232','Rerouted':'#c0612e'};
+    const FALLBACK_COLORS=['#6366f1','#a855f7','#ec4899','#14b8a6','#f97316','#84cc16','#06b6d4','#8b5cf6'];
+    const dataStatuses=[...new Set(sh.map(d=>d.status).filter(Boolean))].sort((a,b)=>{const order=Object.keys(SHIP_STATUS_COLORS);const ia=order.indexOf(a),ib=order.indexOf(b);if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);});
+    let fbIdx=0;const getColor=s=>SHIP_STATUS_COLORS[s]||(FALLBACK_COLORS[fbIdx++%FALLBACK_COLORS.length]);
+    const dataCounts=dataStatuses.map(s=>sh.filter(d=>d.status===s).length);
+    const dataColors=dataStatuses.map(s=>getColor(s));
+    h+='<div class="chart-wrap"><div class="chart-title">Shipments by Status</div><div style="height:'+Math.max(180,dataStatuses.length*28)+'px;position:relative"><canvas id="chart-shipstatus"></canvas></div></div>';
+    queueChart('chart-shipstatus',{type:'bar',data:{labels:dataStatuses,datasets:[{data:dataCounts,backgroundColor:dataColors,borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw} shipment${ctx.raw!==1?'s':''}`}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
   }
   h+='</div>';
 
@@ -1038,19 +1040,21 @@ function renderShipments(shAll,shipF,isCon){
   // Charts
   if(shAll.length>0){
     h+='<div class="charts-row">';
-    const SHIP_STATUS_COLORS={'Booking':'#4e6580','Loaded / Departed':'#2d6fd4','In Transit':'#0d9e80','Transshipment':'#0891b2','Arrived at Port':'#0c7fb8','Customs Clearance':'#d4891a','Released':'#1a9e55','Delivered':'#14784a','Delayed':'#b83232','Rerouted':'#d4891a'};
-    const allStatuses=Object.keys(SHIP_STATUS_COLORS);
+    const SHIP_STATUS_COLORS={'Booking':'#4e6580','Loaded / Departed':'#2d6fd4','In Transit':'#0d9e80','Transshipment':'#0891b2','Arrived at Port':'#0c7fb8','Customs Clearance':'#d4891a','Released':'#1a9e55','Delivered':'#14784a','Delayed':'#b83232','Rerouted':'#c0612e'};
+    const FALLBACK_COLORS=['#6366f1','#a855f7','#ec4899','#14b8a6','#f97316','#84cc16','#06b6d4','#8b5cf6'];
+    const allStatuses=[...new Set(shAll.map(d=>d.status).filter(Boolean))].sort((a,b)=>{const order=Object.keys(SHIP_STATUS_COLORS);const ia=order.indexOf(a),ib=order.indexOf(b);if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);});
+    let fbIdx2=0;const getColorS=s=>SHIP_STATUS_COLORS[s]||(FALLBACK_COLORS[fbIdx2++%FALLBACK_COLORS.length]);
     const allCounts=allStatuses.map(s=>shAll.filter(d=>d.status===s).length);
-    h+='<div class="chart-wrap"><div class="chart-title">All Shipments by Status</div><div style="height:220px;position:relative"><canvas id="chart-sh-status"></canvas></div></div>';
+    const allColors=allStatuses.map(s=>getColorS(s));
     const shStatusCostMap={};allStatuses.forEach(s=>{shStatusCostMap[s]=shAll.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0);});
-    const nzStatuses=allStatuses.filter((_,i)=>allCounts[i]>0);const nzCounts=allCounts.filter(c=>c>0);
-    queueChart('chart-sh-status',{type:'bar',data:{labels:nzStatuses,datasets:[{data:nzCounts,backgroundColor:nzStatuses.map(s=>SHIP_STATUS_COLORS[s]),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>lvlS>=4?[' Shipments: '+ctx.raw,' Clearing: BHD '+fmtNum(shStatusCostMap[nzStatuses[ctx.dataIndex]])]:[' Shipments: '+ctx.raw]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
+    h+='<div class="chart-wrap"><div class="chart-title">All Shipments by Status</div><div style="height:'+Math.max(180,allStatuses.length*28)+'px;position:relative"><canvas id="chart-sh-status"></canvas></div></div>';
+    queueChart('chart-sh-status',{type:'bar',data:{labels:allStatuses,datasets:[{data:allCounts,backgroundColor:allColors,borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>lvlS>=4?[' Shipments: '+ctx.raw,' Clearing: BHD '+fmtNum(shStatusCostMap[allStatuses[ctx.dataIndex]])]:[' Shipments: '+ctx.raw]}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:10}}}}}});
     // Import vs Export donut
     h+='<div class="chart-wrap"><div class="chart-title">Import vs Export</div><div style="height:220px;position:relative"><canvas id="chart-sh-dir"></canvas></div></div>';
     const impVal=impSh.reduce((s,d)=>s+(d.cargoValue||0),0);const expVal=expSh.reduce((s,d)=>s+(d.cargoValue||0),0);
     queueChart('chart-sh-dir',{type:'bar',data:{labels:['Import','Export'],datasets:[{data:[impSh.length,expSh.length],backgroundColor:['#2d6fd4','#c0612e'],borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>lvlS>=3?[' Shipments: '+ctx.raw,' Cargo Value: BHD '+fmtNum(ctx.dataIndex===0?impVal:expVal)]:[' Shipments: '+ctx.raw]}}},scales:{x:{ticks:{color:'#dce8f5',font:{size:12}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
     // Clearing cost by status (level 4+)
-    if(lvlS>=4){const clearByStatus=allStatuses.map((s,i)=>({s,count:allCounts[i],cost:shAll.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0),color:SHIP_STATUS_COLORS[s]})).filter(x=>x.cost>0);
+    if(lvlS>=4){const clearByStatus=allStatuses.map((s,i)=>({s,count:allCounts[i],cost:shAll.filter(d=>d.status===s).reduce((sum,d)=>sum+(d.totalClearing||0),0),color:allColors[i]})).filter(x=>x.cost>0);
     if(clearByStatus.length>0){
       h+='<div class="chart-wrap"><div class="chart-title">Clearing Cost by Status (BHD)</div><div style="height:220px;position:relative"><canvas id="chart-sh-clear"></canvas></div></div>';
       queueChart('chart-sh-clear',{type:'bar',data:{labels:clearByStatus.map(x=>x.s),datasets:[{data:clearByStatus.map(x=>x.cost),backgroundColor:clearByStatus.map(x=>x.color),borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>[' BHD '+fmtNum(ctx.raw),' '+clearByStatus[ctx.dataIndex].count+' shipments']}}},scales:{x:{ticks:{color:'#5c7898',font:{size:10}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
