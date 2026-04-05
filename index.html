@@ -976,7 +976,6 @@ function renderLocal(data,sh,isCon){
     ...(lvlL>=3?[{key:'cancellationReason',label:'Cancel Reason',type:'string'}]:[]),
   ];
   h+=dataTable(tabId,cols,data);
-  h+=renderShipmentMiniCharts(sh,lvlL,'lp');
   return h;
 }
 
@@ -1047,7 +1046,6 @@ function renderIntl(data,sh,isCon){
     ...(lvlI>=2?[{key:'remarks',label:'Remarks',type:'string'}]:[]),
   ];
   h+=dataTable(tabId,cols,data);
-  h+=renderShipmentMiniCharts(sh,lvlIM,'ip');
   return h;
 }
 
@@ -1192,7 +1190,6 @@ function renderDeliveries(data,sh,isCon){
     {key:'remarks',label:'Remarks',type:'string'}
   ];
   h+=dataTable(tabId,cols,data);
-  h+=renderShipmentMiniCharts(sh,userLevel(),'del');
   return h;
 }
 
@@ -1233,7 +1230,6 @@ function renderEscalations(data,sh,isCon){
     {key:'status',label:'Status',type:'string',render:v=>{let bg='#2d6fd422',fg='#6ea8e8';if(v==='Escalated'){bg='#b8323222';fg='#b83232';}if(v==='Open'){bg='#d4891a22';fg='#d4891a';}return badge(v,bg,fg);}}
   ];
   h+=dataTable(tabId,cols,data);
-  h+=renderShipmentMiniCharts(sh,userLevel(),'esc');
   return h;
 }
 
