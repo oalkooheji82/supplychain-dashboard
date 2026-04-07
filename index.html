@@ -1803,7 +1803,7 @@ function showEditUserModal(username){
     <div class="modal-card">
       <div class="modal-title">Edit User — ${esc(u.full_name)}</div>
       <div class="form-row"><label>Full Name</label><input id="eu_name" type="text" value="${esc(u.full_name)}"></div>
-      <div class="form-row"><label>Telegram ID</label><input id="eu_tgid" type="number" value="${u.telegram_id||''}"></div>
+      <div class="form-row"><label>Telegram ID <span style="font-size:11px;color:#5c7898">(leave unchanged to keep current)</span></label><input id="eu_tgid" type="number" value="${u.telegram_id||''}" placeholder="${u.telegram_id?'Current: '+u.telegram_id:'Not set'}"></div>
       <div class="form-row"><label>Tier</label><select id="eu_tier">${TIER_OPTS.map(t=>`<option value="${t}"${u.tier===t?' selected':''}>${TIER_LABELS[t]}</option>`).join('')}</select></div>
       <div class="form-row"><label>Divisions</label><div class="div-checkboxes">${divChecks}</div></div>
       <div class="form-row"><label>Tab Access <span style="font-size:11px;color:#5c7898">(Officer &amp; Manager only — Directors+ see all)</span></label><div class="div-checkboxes">${tabChecks('editTab',u.tabs||[])}</div></div>
@@ -1818,13 +1818,15 @@ function showEditUserModal(username){
 
 async function submitEditUser(username){
   const name=document.getElementById('eu_name').value.trim();
-  const tgid=parseInt(document.getElementById('eu_tgid').value);
+  const tgidVal=document.getElementById('eu_tgid').value.trim();
   const tier=document.getElementById('eu_tier').value;
   const divs=Array.from(document.querySelectorAll('input[name="editDiv"]:checked')).map(c=>c.value);
   const tabs=Array.from(document.querySelectorAll('input[name="editTab"]:checked')).map(c=>c.value);
-  if(!name||!tgid||!divs.length){alert('Please fill all fields and select at least one division.');return;}
+  if(!name||!divs.length){alert('Please fill all fields and select at least one division.');return;}
+  const payload={full_name:name,tier,divisions:divs,tabs};
+  if(tgidVal) payload.telegram_id=parseInt(tgidVal);
   try{
-    await api(`/admin/users/${username}`,'PUT',{full_name:name,telegram_id:tgid,tier,divisions:divs,tabs});
+    await api(`/admin/users/${username}`,'PUT',payload);
     document.getElementById('editUserModal').remove();
     await loadAdminUsers();
     document.getElementById('adminContent').innerHTML=renderUsersTab();
