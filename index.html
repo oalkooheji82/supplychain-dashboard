@@ -159,6 +159,7 @@ select{padding:5px 10px;border-radius:6px;border:1px solid var(--border-color);b
 .btn-success{background:#10b98122;color:#10b981;border:1px solid #10b98144}
 .modal-overlay{position:fixed;inset:0;background:#00000088;z-index:900;display:flex;align-items:center;justify-content:center}
 .modal-card{background:#0C1220;border:1px solid #1a2f46;border-radius:12px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal-card.wide{max-width:860px}
 .modal-title{font-size:16px;font-weight:700;margin-bottom:20px;color:#fff}
 .form-row{margin-bottom:14px}
 .form-row label{display:block;font-size:11px;font-weight:600;color:#5c7898;margin-bottom:5px;text-transform:uppercase}
@@ -967,7 +968,7 @@ function renderLocal(data,sh,isCon){
     {key:'stage',label:'Stage',type:'string',render:v=>stageBadge(v)},
     ...(lvlL>=3?[{key:'buyer',label:'Buyer',type:'string'}]:[]),
     ...(lvlL>=3?[{key:'supplier',label:'Supplier',type:'string'}]:[]),
-    ...(lvlL>=3?[{key:'poNumber',label:'PO #',type:'string'}]:[]),
+    ...(lvlL>=3?[{key:'poNumber',label:'PO #',type:'string',render:v=>v?`<span style="color:#6ea8e8;cursor:pointer;text-decoration:underline;font-weight:600" onclick="showDeliveriesModal('${escAttr(v)}')">${esc(v)}</span>`:''}]:[]),
     ...(lvlL>=3?[{key:'poValue',label:'PO Value (BHD)',type:'number',render:v=>v?fmtNum(v):''}]:[]),
     ...(lvlL>=3?[{key:'paymentTerms',label:'Payment Terms',type:'string'}]:[]),
     {key:'expectedDelivery',label:'Exp. Delivery',type:'string'},
@@ -1117,7 +1118,7 @@ function renderShipments(shAll,shipF,isCon){
     ...(lvlS>=3?[{key:'incoterms',label:'Incoterms',type:'string',render:v=>incoBadge(v)}]:[]),
     {key:'mode',label:'Mode',type:'string'},
     ...(lvlS>=4?[{key:'cnt20',label:'Containers',type:'string',render:(_,r)=>containerStr(r)}]:[]),
-    ...(lvlS>=3?[{key:'blAwb',label:'BL/AWB #',type:'string'}]:[]),
+    ...(lvlS>=3?[{key:'blAwb',label:'BL/AWB #',type:'string',render:v=>v?`<span style="color:#6ea8e8;cursor:pointer;text-decoration:underline;font-weight:600" onclick="showShipmentItemsModal('${escAttr(v)}')">${esc(v)}</span>`:''}]:[]),
     ...(lvlS>=3?[{key:'originPort',label:'Origin Port',type:'string'}]:[]),
     ...(lvlS>=3?[{key:'destPort',label:'Dest Port',type:'string'}]:[]),
     ...(lvlS>=3?[{key:'carrier',label:'Carrier',type:'string'}]:[]),
@@ -1527,6 +1528,93 @@ async function doLogout(){
 }
 
 function showAuthErr(el,msg){el.textContent=msg;el.style.display='';}
+
+// ═══════════════════════════════════════════════
+// DRILL-DOWN MODALS
+// ═══════════════════════════════════════════════
+
+function showDeliveriesModal(poNumber){
+  const rows=DATA.deliveries.filter(d=>d.lpoRef===poNumber);
+  const title=`Deliveries for PO: ${esc(poNumber)}`;
+  let body='';
+  if(!rows.length){
+    body='<div style="color:#5c7898;padding:16px 0">No delivery records found for this PO.</div>';
+  } else {
+    body='<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse">'
+      +'<thead><tr>'
+      +'<th style="text-align:left;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Delivery #</th>'
+      +'<th style="text-align:left;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Date</th>'
+      +'<th style="text-align:left;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Items Description</th>'
+      +'<th style="text-align:right;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Qty</th>'
+      +'<th style="text-align:left;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Status</th>'
+      +'<th style="text-align:left;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Remarks</th>'
+      +'</tr></thead><tbody>';
+    rows.forEach(d=>{
+      body+='<tr style="border-bottom:1px solid #0d1926">'
+        +`<td style="padding:8px 10px;font-size:12px;color:#6ea8e8">${esc(d.deliveryNum)}</td>`
+        +`<td style="padding:8px 10px;font-size:12px;white-space:nowrap">${esc(d.deliveryDate)}</td>`
+        +`<td style="padding:8px 10px;font-size:12px">${esc(d.items)}</td>`
+        +`<td style="padding:8px 10px;font-size:12px;text-align:right;font-weight:700">${d.qtyDelivered||'-'}</td>`
+        +`<td style="padding:8px 10px;font-size:12px">${stageBadge(d.status)}</td>`
+        +`<td style="padding:8px 10px;font-size:12px;color:#5c7898">${esc(d.remarks)}</td>`
+        +'</tr>';
+    });
+    body+='</tbody></table></div>';
+    body+=`<div style="margin-top:12px;font-size:12px;color:#5c7898">${rows.length} delivery record${rows.length!==1?'s':''} — Total qty: <strong style="color:#fff">${rows.reduce((s,d)=>s+d.qtyDelivered,0)}</strong></div>`;
+  }
+  _showDrillModal(title,body);
+}
+
+function showShipmentItemsModal(blAwb){
+  const lvl=userLevel();
+  const rows=DATA.shipmentItems.filter(d=>d.blRef===blAwb);
+  const title=`Items for BL/AWB: ${esc(blAwb)}`;
+  let body='';
+  if(!rows.length){
+    body='<div style="color:#5c7898;padding:16px 0">No item records found for this BL/AWB.</div>';
+  } else {
+    let headers='<th style="text-align:left;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Item Description</th>'
+      +'<th style="text-align:left;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Project</th>'
+      +'<th style="text-align:right;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Qty</th>';
+    if(lvl>=3) headers+='<th style="text-align:right;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Unit Value (USD)</th>'
+      +'<th style="text-align:right;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Total Value (USD)</th>';
+    if(lvl>=4) headers+='<th style="text-align:right;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Customs Alloc (BHD)</th>'
+      +'<th style="text-align:right;padding:8px 10px;font-size:11px;color:#5c7898;border-bottom:1px solid #1a2f46">Freight Alloc (BHD)</th>';
+    body='<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse"><thead><tr>'+headers+'</tr></thead><tbody>';
+    rows.forEach(d=>{
+      let cells=`<td style="padding:8px 10px;font-size:12px">${esc(d.item)}</td>`
+        +`<td style="padding:8px 10px;font-size:12px;color:#6ea8e8">${esc(d.projectCode)}</td>`
+        +`<td style="padding:8px 10px;font-size:12px;text-align:right;font-weight:700">${d.qty||'-'}</td>`;
+      if(lvl>=3) cells+=`<td style="padding:8px 10px;font-size:12px;text-align:right">${d.unitValue?'$'+fmtNum(d.unitValue):'-'}</td>`
+        +`<td style="padding:8px 10px;font-size:12px;text-align:right;font-weight:700;color:#6ea8e8">${d.totalValue?'$'+fmtNum(d.totalValue):'-'}</td>`;
+      if(lvl>=4) cells+=`<td style="padding:8px 10px;font-size:12px;text-align:right">${d.customsAllocation?fmtNum(d.customsAllocation):'-'}</td>`
+        +`<td style="padding:8px 10px;font-size:12px;text-align:right">${d.freightAllocation?fmtNum(d.freightAllocation):'-'}</td>`;
+      body+='<tr style="border-bottom:1px solid #0d1926">'+cells+'</tr>';
+    });
+    body+='</tbody></table></div>';
+    if(lvl>=3){
+      const totalVal=rows.reduce((s,d)=>s+d.totalValue,0);
+      body+=`<div style="margin-top:12px;font-size:12px;color:#5c7898">${rows.length} item${rows.length!==1?'s':''} — Total value: <strong style="color:#6ea8e8">$${fmtNum(totalVal)}</strong></div>`;
+    } else {
+      body+=`<div style="margin-top:12px;font-size:12px;color:#5c7898">${rows.length} item${rows.length!==1?'s':''}</div>`;
+    }
+  }
+  _showDrillModal(title,body);
+}
+
+function _showDrillModal(title,body){
+  document.getElementById('drillModal')?.remove();
+  const html=`<div class="modal-overlay" id="drillModal" onclick="if(event.target===this)this.remove()">
+    <div class="modal-card wide">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="modal-title" style="margin-bottom:0">${title}</div>
+        <button onclick="document.getElementById('drillModal').remove()" style="background:none;border:none;color:#5c7898;font-size:18px;cursor:pointer;line-height:1">✕</button>
+      </div>
+      ${body}
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
 
 // ═══════════════════════════════════════════════
 // ADMIN PANEL
