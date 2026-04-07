@@ -781,8 +781,9 @@ function renderShipmentMiniCharts(sh, lvl, prefix){
 // OVERVIEW
 // ═══════════════════════════════════════════════
 function renderOverview(lp,ip,sh,es,isCon){
-  const activeL=lp.filter(d=>d.stage!=='Closed / Completed');
-  const activeI=ip.filter(d=>d.stage!=='Closed / Completed');
+  const INACTIVE=['Closed / Completed','Cancelled'];
+  const activeL=lp.filter(d=>!INACTIVE.includes(d.stage));
+  const activeI=ip.filter(d=>!INACTIVE.includes(d.stage));
   const closedL=lp.filter(d=>d.stage==='Closed / Completed');
   const closedI=ip.filter(d=>d.stage==='Closed / Completed');
   const agingL=activeL.filter(d=>d.daysInStage>7);
@@ -825,15 +826,34 @@ function renderOverview(lp,ip,sh,es,isCon){
   if(lvl>=4) h+=metricCard('🧾','Total Clearing (BHD)',fmtNum(totalClearing),'#c0612e','Duty: '+fmtNum(totalDuty)+' | VAT: '+fmtNum(totalVat)+' | DO: '+fmtNum(totalDO));
   h+='</div>';
 
-  // Charts row
-  h+='<div class="charts-row">';
-  // Spend distribution (level 3+)
-  if(lvl>=3&&(activeLVal>0||activeIVal>0)){
-    const spendTotal=activeLVal+activeIVal;
-    h+='<div class="chart-wrap"><div class="chart-title">Active Spend Distribution</div><div style="height:220px;position:relative"><canvas id="chart-spend"></canvas></div></div>';
-    queueChart('chart-spend',{type:'bar',data:{labels:['Local Purchases (BHD)','International (USD)'],datasets:[{data:[activeLVal,activeIVal],backgroundColor:['#0d9e80','#c0612e'],borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const pct=spendTotal>0?(ctx.raw/spendTotal*100).toFixed(1):'0';return[` Value: ${fmtNum(ctx.raw)}`,' Items: '+(ctx.dataIndex===0?activeL.length:activeI.length),' Share: '+pct+'%'];}}}},scales:{x:{ticks:{color:'#dce8f5',font:{size:11}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
+  // Charts row — level 3+ (financial data, auth matrix)
+  if(lvl>=3){
+    // Build monthly buckets from dateRaised (active items only)
+    const monthKey=d=>{const dt=d.dateRaised||d.expectedDelivery;if(!dt)return null;const p=dt.split('-');if(p.length<2)return null;return p[0]+'-'+p[1];};
+    const allMonths=[...new Set([...activeL.map(monthKey),...activeI.map(monthKey)].filter(Boolean))].sort();
+    const fmtMonth=k=>{const[y,m]=k.split('-');return new Date(+y,+m-1,1).toLocaleString('en-GB',{month:'short',year:'2-digit'});};
+
+    h+='<div class="charts-row">';
+    // Monthly spend breakdown
+    if(allMonths.length>0){
+      const lVals=allMonths.map(m=>activeL.filter(d=>monthKey(d)===m).reduce((s,d)=>s+(d.poValue||d.estimatedValue||0),0));
+      const iVals=allMonths.map(m=>activeI.filter(d=>monthKey(d)===m).reduce((s,d)=>s+(d.poValue||d.estimatedValue||0),0));
+      const lCounts=allMonths.map(m=>activeL.filter(d=>monthKey(d)===m).length);
+      const iCounts=allMonths.map(m=>activeI.filter(d=>monthKey(d)===m).length);
+      h+='<div class="chart-wrap" style="flex:2;min-width:320px"><div class="chart-title">Active Spend by Month — Local (BHD) vs International (USD)</div><div style="height:240px;position:relative"><canvas id="chart-spend-monthly"></canvas></div></div>';
+      queueChart('chart-spend-monthly',{type:'bar',data:{labels:allMonths.map(fmtMonth),datasets:[
+        {label:'Local (BHD)',data:lVals,backgroundColor:'#0d9e80',borderRadius:3,borderWidth:0},
+        {label:'Intl (USD)',data:iVals,backgroundColor:'#c0612e',borderRadius:3,borderWidth:0}
+      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#dce8f5',font:{size:11}}},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?[` BHD ${fmtNum(ctx.raw)}`,` ${lCounts[ctx.dataIndex]} PRs`]:[` USD ${fmtNum(ctx.raw)}`,` ${iCounts[ctx.dataIndex]} PRs`]}}},scales:{x:{ticks:{color:'#dce8f5',font:{size:11}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
+    }
+    // Total active spend summary bar
+    if(activeLVal>0||activeIVal>0){
+      const spendTotal=activeLVal+activeIVal;
+      h+='<div class="chart-wrap"><div class="chart-title">Active Spend Distribution (Total)</div><div style="height:240px;position:relative"><canvas id="chart-spend"></canvas></div></div>';
+      queueChart('chart-spend',{type:'bar',data:{labels:['Local (BHD)','International (USD)'],datasets:[{data:[activeLVal,activeIVal],backgroundColor:['#0d9e80','#c0612e'],borderRadius:5,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const pct=spendTotal>0?(ctx.raw/spendTotal*100).toFixed(1):'0';return[` Value: ${fmtNum(ctx.raw)}`,' Items: '+(ctx.dataIndex===0?activeL.length:activeI.length),' Share: '+pct+'%'];}}}},scales:{x:{ticks:{color:'#dce8f5',font:{size:12}}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
+    }
+    h+='</div>';
   }
-  h+='</div>';
   h+=renderShipmentMiniCharts(sh,lvl,'ov');
 
   // Delay reasons
