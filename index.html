@@ -1227,14 +1227,38 @@ function renderEscalations(data,sh,isCon){
     metricCard('','In Progress',data.filter(d=>d.status==='In Progress').length,'#2d6fd4')+
     '</div>';
 
-  // Escalation chart
+  // Escalation charts
   if(data.length>0){
-    const types=[...new Set(data.map(d=>d.type).filter(Boolean))];
+    const ESC_STATUS_COLORS={'Open':'#d4891a','In Progress':'#2d6fd4','Escalated':'#b83232','Resolved':'#1a9e55','Closed':'#4e6580'};
+    const FALLBACK_ESC=['#6366f1','#a855f7','#ec4899','#14b8a6','#f97316'];
+    const CHART_PALETTE_ESC=['#b83232','#d4891a','#2d6fd4','#6148c5','#0891b2','#0d9e80','#c0612e','#14784a','#6366f1','#a855f7'];
+    h+='<div class="charts-row">';
+
+    // By Status
+    const statuses=[...new Set(data.map(d=>d.status).filter(Boolean))].sort((a,b)=>{
+      const ord=Object.keys(ESC_STATUS_COLORS);const ia=ord.indexOf(a),ib=ord.indexOf(b);
+      if(ia>=0&&ib>=0)return ia-ib;if(ia>=0)return -1;if(ib>=0)return 1;return a.localeCompare(b);
+    });
+    if(statuses.length>0){
+      let fbI=0;const stColors=statuses.map(s=>ESC_STATUS_COLORS[s]||(FALLBACK_ESC[fbI++%FALLBACK_ESC.length]));
+      const stCounts=statuses.map(s=>data.filter(d=>d.status===s).length);
+      h+=`<div class="chart-wrap"><div class="chart-title">Escalations by Status</div><div style="height:${Math.max(160,statuses.length*32)}px;position:relative"><canvas id="chart-esc-status"></canvas></div></div>`;
+      queueChart('chart-esc-status',{type:'bar',data:{labels:statuses,datasets:[{data:stCounts,backgroundColor:stColors,borderRadius:4,borderWidth:0}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw} escalation${ctx.raw!==1?'s':''}`}}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:11}}}}}});
+    }
+
+    // By Type — showing open vs resolved side by side
+    const types=[...new Set(data.map(d=>d.type).filter(Boolean))].sort((a,b)=>data.filter(d=>d.type===b).length-data.filter(d=>d.type===a).length);
     if(types.length>0){
       const openByType=types.map(t=>data.filter(d=>d.type===t&&d.status!=='Resolved'&&d.status!=='Closed').length);
-      h+=`<div class="chart-wrap" style="margin-bottom:20px"><div class="chart-title">Open Escalations by Type</div><div style="height:${Math.max(140,types.length*28)}px;position:relative"><canvas id="chart-esctype"></canvas></div></div>`;
-      queueChart('chart-esctype',{type:'bar',data:{labels:types,datasets:[{label:'Open',data:openByType,backgroundColor:'#b83232',borderRadius:4,borderWidth:0}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#5c7898',font:{size:11}}}}}});
+      const resolvedByType=types.map(t=>data.filter(d=>d.type===t&&(d.status==='Resolved'||d.status==='Closed')).length);
+      h+=`<div class="chart-wrap"><div class="chart-title">Escalations by Type</div><div style="height:${Math.max(160,types.length*32)}px;position:relative"><canvas id="chart-esc-type"></canvas></div></div>`;
+      queueChart('chart-esc-type',{type:'bar',data:{labels:types,datasets:[
+        {label:'Open/Active',data:openByType,backgroundColor:'#b83232',borderRadius:3,borderWidth:0},
+        {label:'Resolved/Closed',data:resolvedByType,backgroundColor:'#1a9e55',borderRadius:3,borderWidth:0}
+      ]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'#dce8f5',font:{size:11}}},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.raw}`}}},scales:{x:{stacked:false,ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}},y:{ticks:{color:'#dce8f5',font:{size:11}}}}}});
     }
+
+    h+='</div>';
   }
 
   const cols=[
