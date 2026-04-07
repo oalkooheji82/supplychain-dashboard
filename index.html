@@ -1077,7 +1077,7 @@ function renderShipments(shAll,shipF,isCon){
   const tabId='shipments';
   const impSh=shAll.filter(s=>s.direction==='Import');
   const expSh=shAll.filter(s=>s.direction==='Export');
-  const delayed=shAll.filter(s=>s.status==='Delayed');
+  const delayed=shAll.filter(s=>s.status.toLowerCase().includes('delay')||!!s.delayReason);
   const rerouted=shAll.filter(s=>s.status==='Rerouted');
   const totalCont=shAll.reduce((s,d)=>s+d.cnt20+d.cnt40+d.cnt40hc,0);
   const contSub=shAll.reduce((s,d)=>s+d.cnt20,0)+' x 20ft, '+shAll.reduce((s,d)=>s+d.cnt40,0)+' x 40ft, '+shAll.reduce((s,d)=>s+d.cnt40hc,0)+' x 40HC';
