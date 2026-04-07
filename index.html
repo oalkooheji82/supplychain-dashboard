@@ -798,7 +798,7 @@ function renderOverview(lp,ip,sh,es,isCon){
   const totalShVal=sh.reduce((s,d)=>s+(d.cargoValue||0),0);
   const totalCont=sh.reduce((s,d)=>s+d.cnt20+d.cnt40+d.cnt40hc,0);
   const contSub=sh.reduce((s,d)=>s+d.cnt20,0)+' x 20ft, '+sh.reduce((s,d)=>s+d.cnt40,0)+' x 40ft, '+sh.reduce((s,d)=>s+d.cnt40hc,0)+' x 40HC';
-  const delayed=sh.filter(s=>s.status.toLowerCase()==='delayed'||!!s.delayReason);
+  const delayed=sh.filter(s=>s.status.toLowerCase().includes('delay')||!!s.delayReason);
   const rerouted=sh.filter(s=>s.status==='Rerouted'||s.rerouted==='Yes');
   const openEsc=es.filter(d=>d.status!=='Resolved'&&d.status!=='Closed');
   const critEsc=es.filter(d=>d.impact==='Critical'&&d.status!=='Resolved');
@@ -895,7 +895,7 @@ function renderOverview(lp,ip,sh,es,isCon){
       const dlV=dlA.reduce((s,d)=>s+(d.poValue||d.estimatedValue||0),0);
       const diV=diA.reduce((s,d)=>s+(d.poValue||d.estimatedValue||0),0);
       const dsV=ds.reduce((s,d)=>s+(d.cargoValue||0),0);
-      const del=ds.filter(s=>s.status.toLowerCase()==='delayed'||!!s.delayReason).length;
+      const del=ds.filter(s=>s.status.toLowerCase().includes('delay')||!!s.delayReason).length;
       const rer=ds.filter(s=>s.status==='Rerouted').length;
       h+='<tr><td style="font-weight:600"><span style="cursor:pointer;color:#6ea8e8" onclick="setDivision(\''+escAttr(div)+'\')">'+esc(div)+'</span></td>';
       h+='<td>'+dlA.length+'</td><td style="font-size:11px">'+fmtNum(dlV)+'</td><td style="color:var(--text-muted)">'+dlC.length+'</td>';
