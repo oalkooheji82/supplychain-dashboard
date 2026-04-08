@@ -8,6 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>.ship-tooltip{background:#1a2f46;border:1px solid #2a4a6b;color:#dce8f5;padding:8px 12px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.4)}.ship-tooltip::before{display:none}</style>
 <style>
 :root{--bg-primary:#080e1a;--bg-secondary:#0d1828;--bg-tertiary:#121f32;--card-bg:#0d1828;--text-primary:#dce8f5;--text-muted:#5c7898;--border-color:#1a2f46;--header-bg:#060c18;--header-text:#6a8cb2}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -480,8 +481,17 @@ function renderShipmentsMap(shipments){
     const icon=L.divIcon({html:iconHtml,className:'',iconSize:[28,28],iconAnchor:[14,14]});
     const marker=L.marker(pos,{icon}).addTo(map);
     marker.on('click',()=>openVesselPanel(sh,prog));
-    const tip=isArrived?`${sh.supplier||sh.item} · Arrived at ${sh.destPort}`:`${sh.supplier||sh.item} · ${prog}% complete${isRerouted?' · 🔀 Rerouted':''}`;
-    marker.bindTooltip(tip,{direction:'top'});
+    const vessel=activeVessel(sh);
+    const tipHtml=`<div style="font-size:12px;line-height:1.7;min-width:200px">
+      <b style="font-size:13px">${sh.supplier||sh.item||'Shipment'}</b><br>
+      <span style="color:#aaa">${sh.originPort} → ${sh.destPort}</span><br>
+      ${vessel?`<span>🚢 ${vessel}</span><br>`:''}
+      ${sh.blAwb?`<span style="color:#aaa">BL: ${sh.blAwb}</span><br>`:''}
+      <span>ETD: ${sh.etd||'—'} &nbsp;|&nbsp; ETA: ${sh.eta||'—'}</span><br>
+      <span>${isArrived?'✅ Arrived at destination':isRerouted?`🔀 Rerouted · ${prog}% complete`:`🔄 In Transit · ${prog}% complete`}</span>
+      ${sh.delayReason?`<br><span style="color:#f87171">⚠️ ${sh.delayReason}</span>`:''}
+    </div>`;
+    marker.bindTooltip(tipHtml,{direction:'top',opacity:0.95,className:'ship-tooltip'});
     bounds.push(from,to);
   }
   if(bounds.length) map.fitBounds(bounds,{padding:[30,30]});
