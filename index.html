@@ -344,100 +344,166 @@ const INCOTERMS_LIST = ["EXW","FOB","CIF","CFR","DDP","DAP","FCA","CPT","CIP"];
 // VESSEL TRACKING MAP
 // ═══════════════════════════════════════════════
 // SEA LANE ROUTING — waypoints for major chokepoints
+// ── Sea-lane waypoints ────────────────────────────────────────────────────────
 const WP={
   HORMUZ:   [26.6,56.6],   // Strait of Hormuz
-  GULF_OUT: [23.5,59.5],   // Exit Gulf of Oman
+  GULF_MID: [26.0,52.0],   // Centre of Persian Gulf (keeps intra-Gulf routes in water)
+  GULF_OUT: [23.0,59.0],   // Gulf of Oman open water
   BAB:      [12.6,43.5],   // Bab el-Mandeb
   RED_S:    [15.5,41.5],   // South Red Sea
   RED_N:    [27.0,34.0],   // North Red Sea
   SUEZ_S:   [29.9,32.6],   // Suez Canal south
-  SUEZ_N:   [31.3,32.3],   // Port Said
-  MED_E:    [33.5,28.0],   // E. Mediterranean
-  MED_C:    [37.0,13.5],   // C. Mediterranean
-  MED_W:    [38.5,2.0],    // W. Mediterranean
+  SUEZ_N:   [31.3,32.3],   // Port Said / N. entrance
+  MED_E:    [33.0,27.0],   // E. Mediterranean (open water, south of Greece)
+  MED_C:    [36.5,14.0],   // C. Mediterranean (south of Sicily)
+  MED_W:    [38.0,2.5],    // W. Mediterranean (south of Spain)
   GIBR:     [35.9,-5.6],   // Gibraltar
   ATL:      [47.0,-9.0],   // N. Atlantic approach
-  INDIA_SW: [7.0,74.0],    // SW tip of India
-  INDIA_SE: [7.5,80.5],    // SE tip of India
-  MALACCA:  [4.5,100.5],   // Malacca Strait
-  SOF:      [11.8,51.3],   // Cape Guardafui / Horn of Africa
-  CAPE:     [-34.4,18.5],  // Cape of Good Hope
+  INDIA_SW: [6.5,74.0],    // SW tip of India (clear of coast)
+  INDIA_SE: [6.5,81.0],    // SE tip of India / Sri Lanka
+  MALACCA:  [3.5,99.5],    // Malacca Strait (south, open water)
+  SOF:      [11.5,51.5],   // Cape Guardafui / Horn of Africa
+  CAPE:     [-34.8,17.5],  // Cape of Good Hope
   AGULHAS:  [-40.0,20.0],  // South of Africa
 };
 
+// ── Sea-lane region detection ─────────────────────────────────────────────────
 function _region(c){
   const [la,lo]=c;
-  if(lo>48&&lo<62&&la>21&&la<31) return 'gulf';
-  if(lo>32&&lo<48&&la>12&&la<32) return 'redsea';
-  if(lo>60&&lo<82&&la>5&&la<28) return 'india_w';
+  // Gulf of Oman coast and Arabian Sea (east of Hormuz – Fujairah, Muscat, Salalah etc.)
+  // Split from Persian Gulf to prevent routes crossing the Musandam/UAE peninsula
+  if(lo>56&&lo<64&&la>10&&la<27) return 'gulf_oman';
+  if(lo>52&&lo<57&&la>10&&la<20) return 'gulf_oman'; // Salalah / S. Oman coast
+  // Persian Gulf (strict)
+  if(lo>47&&lo<57.5&&la>21&&la<32) return 'gulf';
+  // Red Sea
+  if(lo>32&&lo<48&&la>11&&la<32) return 'redsea';
+  // West India coast
+  if(lo>64&&lo<78&&la>7&&la<26) return 'india_w';
+  // East India coast / Bay of Bengal
   if(lo>78&&lo<92&&la>5&&la<23) return 'india_e';
-  if(lo>85&&lo<106&&la>-5&&la<25) return 'sea';
-  if(lo>106&&lo<130&&la>5&&la<38) return 'china';
-  if(lo>125&&la>30&&la<45) return 'japan';
-  if(lo>-15&&lo<37&&la>28&&la<50) return 'med';
-  if(lo>-15&&lo<30&&la>48&&la<66) return 'n_europe';
-  if(lo>-12&&lo<5&&la>28&&la<48) return 's_europe_w';
-  if(lo>30&&lo<50&&la>35&&la<47) return 'black_sea';
-  if(lo>100&&lo<150&&la>-40&&la<-10) return 'australia';
-  if(lo>-85&&lo<-60&&la>-55&&la<15) return 's_america';
-  if(lo>-130&&lo<-60&&la>15&&la<55) return 'n_america';
-  if(lo>-20&&lo<50&&la>-35&&la<15) return 'africa_w';
-  if(lo>30&&lo<55&&la>-35&&la<5) return 'africa_e';
+  // SE Asia / Malacca area
+  if(lo>92&&lo<108&&la>-5&&la<22) return 'sea';
+  // South China Sea / Philippines / Indonesia
+  if(lo>108&&lo<130&&la>-5&&la<25) return 'china';
+  // Japan / Korea
+  if(lo>128&&la>28&&la<46) return 'japan';
+  // Australia
+  if(lo>110&&lo<158&&la>-40&&la<-10) return 'australia';
+  // Mediterranean
+  if(lo>-6&&lo<37&&la>29&&la<48) return 'med';
+  // N. Europe (including Baltic, North Sea)
+  if(lo>-12&&lo<30&&la>48&&la<66) return 'n_europe';
+  // SW Europe Atlantic coast (Spain/Portugal)
+  if(lo>-12&&lo<-4&&la>35&&la<48) return 's_europe_w';
+  // N. America
+  if(lo>-130&&lo<-55&&la>15&&la<55) return 'n_america';
+  // S. America
+  if(lo>-85&&lo<-34&&la>-56&&la<15) return 's_america';
+  // W. Africa coast
+  if(lo>-20&&lo<18&&la>-5&&la<18) return 'africa_w';
+  // E. Africa / Indian Ocean
+  if(lo>30&&lo<55&&la>-30&&la<12) return 'africa_e';
+  // S. Africa
+  if(lo>14&&lo<34&&la>-36&&la<-28) return 's_africa';
   return 'other';
 }
 
-// Route waypoints between region pairs (both directions handled via symmetry)
+// Route waypoints between region pairs (symmetry handled in getSeaWaypoints)
 const ROUTE_TABLE={
-  'gulf:india_w':   [WP.HORMUZ,WP.GULF_OUT],
-  'gulf:india_e':   [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW],
-  'gulf:sea':       [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
-  'gulf:china':     [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
-  'gulf:japan':     [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
-  'gulf:australia': [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
-  'gulf:redsea':    [WP.HORMUZ,WP.SOF,WP.BAB],
-  'gulf:med':       [WP.HORMUZ,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
-  'gulf:n_europe':  [WP.HORMUZ,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
-  'gulf:s_europe_w':[WP.HORMUZ,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W],
-  'gulf:africa_w':  [WP.HORMUZ,WP.SOF,WP.BAB,WP.CAPE,WP.AGULHAS],
-  'gulf:n_america': [WP.HORMUZ,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_C,WP.GIBR,WP.ATL],
-  'india_w:redsea': [WP.INDIA_SW,WP.SOF,WP.BAB],
-  'india_w:med':    [WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
-  'india_w:n_europe':[WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  // Persian Gulf exits
+  'gulf:gulf_oman':   [WP.HORMUZ],
+  'gulf:india_w':     [WP.HORMUZ,WP.GULF_OUT],
+  'gulf:india_e':     [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW],
+  'gulf:sea':         [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
+  'gulf:china':       [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
+  'gulf:japan':       [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
+  'gulf:australia':   [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
+  'gulf:redsea':      [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.BAB],
+  'gulf:med':         [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'gulf:n_europe':    [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  'gulf:s_europe_w':  [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W],
+  'gulf:africa_e':    [WP.HORMUZ,WP.GULF_OUT,WP.SOF],
+  'gulf:s_africa':    [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.CAPE],
+  'gulf:africa_w':    [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.CAPE,WP.AGULHAS],
+  'gulf:n_america':   [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_C,WP.GIBR,WP.ATL],
+  'gulf:s_america':   [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.CAPE,WP.AGULHAS],
+  // Gulf of Oman exits (no Hormuz crossing needed)
+  'gulf_oman:india_w':[WP.GULF_OUT],
+  'gulf_oman:india_e':[WP.GULF_OUT,WP.INDIA_SW],
+  'gulf_oman:sea':    [WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
+  'gulf_oman:china':  [WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
+  'gulf_oman:japan':  [WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
+  'gulf_oman:redsea': [WP.SOF,WP.BAB],
+  'gulf_oman:med':    [WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'gulf_oman:n_europe':[WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  'gulf_oman:africa_e':[WP.SOF],
+  'gulf_oman:s_africa':[WP.SOF,WP.CAPE],
+  'gulf_oman:n_america':[WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_N,WP.MED_C,WP.GIBR,WP.ATL],
+  // India
+  'india_w:redsea':   [WP.INDIA_SW,WP.SOF,WP.BAB],
+  'india_w:med':      [WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'india_w:n_europe': [WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
   'india_w:s_europe_w':[WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W],
-  'india_e:sea':    [WP.INDIA_SE],
-  'india_e:china':  [WP.INDIA_SE,WP.MALACCA],
-  'india_e:med':    [WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
-  'india_e:n_europe':[WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
-  'sea:med':        [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
-  'sea:n_europe':   [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
-  'sea:gulf':       [WP.MALACCA,WP.INDIA_SW,WP.GULF_OUT,WP.HORMUZ],
-  'china:med':      [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
-  'china:n_europe': [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
-  'china:gulf':     [WP.MALACCA,WP.INDIA_SW,WP.GULF_OUT,WP.HORMUZ],
-  'japan:med':      [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
-  'japan:n_europe': [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
-  'redsea:med':     [WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E],
-  'redsea:n_europe':[WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
-  'med:n_europe':   [WP.MED_W,WP.GIBR,WP.ATL],
-  'africa_e:med':   [WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E],
+  'india_w:africa_e': [WP.INDIA_SW,WP.SOF],
+  'india_w:s_africa': [WP.INDIA_SW,WP.CAPE],
+  'india_w:n_america':[WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_N,WP.MED_C,WP.GIBR,WP.ATL],
+  'india_e:sea':      [WP.INDIA_SE],
+  'india_e:china':    [WP.INDIA_SE,WP.MALACCA],
+  'india_e:med':      [WP.INDIA_SE,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'india_e:n_europe': [WP.INDIA_SE,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  // SE Asia / China / Japan
+  'sea:med':          [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'sea:n_europe':     [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  'sea:redsea':       [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB],
+  'sea:africa_e':     [WP.MALACCA,WP.INDIA_SW,WP.SOF],
+  'sea:n_america':    [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_N,WP.MED_C,WP.GIBR,WP.ATL],
+  'china:med':        [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'china:n_europe':   [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  'china:n_america':  [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_N,WP.MED_C,WP.GIBR,WP.ATL],
+  'china:s_america':  [WP.MALACCA,WP.INDIA_SW,WP.CAPE,WP.AGULHAS],
+  'japan:med':        [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'japan:n_europe':   [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  // Red Sea / Med / Europe
+  'redsea:med':       [WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E],
+  'redsea:n_europe':  [WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  'redsea:africa_e':  [WP.BAB,WP.SOF],
+  'redsea:s_africa':  [WP.BAB,WP.SOF,WP.CAPE],
+  'med:n_europe':     [WP.MED_W,WP.GIBR,WP.ATL],
+  'med:n_america':    [WP.MED_W,WP.GIBR,WP.ATL],
+  'n_europe:n_america':[WP.ATL],
+  // Africa
+  'africa_e:med':     [WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E],
   'africa_e:n_europe':[WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_N,WP.MED_C,WP.MED_W,WP.GIBR],
+  'africa_e:s_africa':[WP.CAPE],
+  's_africa:n_europe':[WP.CAPE,WP.AGULHAS,WP.GIBR],
+  's_africa:n_america':[WP.CAPE,WP.AGULHAS,WP.ATL],
+  'africa_w:n_europe':[WP.GIBR],
+  'africa_w:n_america':[WP.ATL],
 };
 
 function getSeaWaypoints(from,to){
-  const rf=_region(from), rt=_region(to);
-  if(rf===rt) return [];
-  const key1=`${rf}:${rt}`, key2=`${rt}:${rf}`;
+  const rf=_region(from),rt=_region(to);
+  // Intra-region: add Gulf midpoint to keep Persian Gulf routes in water
+  if(rf===rt){
+    if(rf==='gulf'&&Math.abs(from[1]-to[1])>3) return [WP.GULF_MID];
+    return [];
+  }
+  const key1=`${rf}:${rt}`,key2=`${rt}:${rf}`;
   if(ROUTE_TABLE[key1]) return ROUTE_TABLE[key1];
   if(ROUTE_TABLE[key2]) return [...ROUTE_TABLE[key2]].reverse();
+  // Fallback: if either is gulf, route via Hormuz
+  if(rf==='gulf'||rt==='gulf') return rf==='gulf'?[WP.HORMUZ,WP.GULF_OUT]:[WP.GULF_OUT,WP.HORMUZ];
   return [];
 }
 
-function catmullRom(pts,segs){
+function catmullRom(pts,segsPerLeg){
   const res=[];
+  const s=segsPerLeg||16;
   for(let i=0;i<pts.length-1;i++){
     const p0=pts[Math.max(0,i-1)],p1=pts[i],p2=pts[i+1],p3=pts[Math.min(pts.length-1,i+2)];
-    for(let j=0;j<segs;j++){
-      const t=j/segs,t2=t*t,t3=t2*t;
+    for(let j=0;j<s;j++){
+      const t=j/s,t2=t*t,t3=t2*t;
       res.push([
         0.5*((2*p1[0])+(-p0[0]+p2[0])*t+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3),
         0.5*((2*p1[1])+(-p0[1]+p2[1])*t+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3)
@@ -451,7 +517,121 @@ function catmullRom(pts,segs){
 function buildRoute(from,to){
   const wps=getSeaWaypoints(from,to);
   const pts=[from,...wps,to];
-  return catmullRom(pts, Math.max(6, Math.round(12/Math.max(1,pts.length-1))));
+  // Fixed 16 segments per leg — smooth curve, won't snap to straight lines on long routes
+  return catmullRom(pts,16);
+}
+
+// ── Road-network waypoints (all on land, verified against road atlases) ────────
+const RWP={
+  KFC:     [26.19,50.43],  // King Fahad Causeway (ONLY land link for Bahrain)
+  DAMMAM:  [26.43,50.10],
+  RIYADH:  [24.68,46.72],
+  JEDDAH:  [21.49,39.18],
+  TABUK:   [28.38,36.56],
+  KUWAIT:  [29.37,47.97],
+  SA_UAE:  [24.00,55.80],  // Saudi-UAE border (Mezyed / Al Ghafia)
+  ABUDHABI:[24.47,54.37],
+  DUBAI_C: [25.20,55.28],
+  AL_AIN:  [24.21,55.76],  // UAE-Oman border (Hafeet / Hili crossing)
+  MUSCAT:  [23.61,58.59],
+  BASRA:   [30.51,47.78],
+  BAGHDAD: [33.34,44.40],
+  AMMAN:   [31.96,35.95],
+  AQABA:   [29.52,35.00],
+  TABA:    [29.49,34.89],  // Egypt-Israel land crossing
+  DAMASCUS:[33.51,36.29],
+  CAIRO:   [30.04,31.24],
+  GAZIANTEP:[37.06,37.38],
+  ISTANBUL:[41.01,28.97],
+  SOFIA:   [42.70,23.32],
+  FRANKFURT:[50.11,8.68],
+  AMSTERDAM:[52.37,4.90],
+  PARIS:   [48.85,2.35],
+  TEHRAN:  [35.70,51.42],
+  TABRIZ:  [38.08,46.30],
+  KARACHI: [24.86,66.99],
+  LAHORE:  [31.55,74.34],
+  DELHI:   [28.61,77.21],
+  BANGKOK: [13.76,100.50],
+  KL:      [3.14,101.69],
+};
+
+function _inBox(pt,la1,la2,ln1,ln2){return pt[0]>=la1&&pt[0]<=la2&&pt[1]>=ln1&&pt[1]<=ln2;}
+
+// Returns road waypoints FROM Bahrain (after KFC) TO dest
+function _fromKFC(dest){
+  const [la,ln]=dest;
+  const pre=[RWP.KFC];
+  if(_inBox(dest,22,26,51.5,55.2)) return [...pre,RWP.DAMMAM,RWP.SA_UAE,RWP.ABUDHABI];   // Abu Dhabi
+  if(_inBox(dest,24,26.5,54.8,56.5)) return [...pre,RWP.DAMMAM,RWP.SA_UAE,RWP.DUBAI_C];  // Dubai/Sharjah
+  if(_inBox(dest,21,26,55.5,61)) return [...pre,RWP.DAMMAM,RWP.SA_UAE,RWP.AL_AIN,RWP.MUSCAT]; // Oman
+  if(_inBox(dest,28,31,46,50)) return [...pre,RWP.DAMMAM,RWP.KUWAIT];                     // Kuwait
+  if(_inBox(dest,24.5,26.5,50.5,52.5)) return [...pre,RWP.DAMMAM];                        // Qatar
+  if(_inBox(dest,29,38,44,50)) return [...pre,RWP.DAMMAM,RWP.BASRA,...(la>32?[RWP.BAGHDAD]:[])]; // Iraq
+  if(_inBox(dest,29,35,34,40)) return [...pre,RWP.DAMMAM,RWP.RIYADH,RWP.TABUK,RWP.AMMAN]; // Jordan/Levant
+  if(_inBox(dest,21,32,24,37)) return [...pre,RWP.DAMMAM,RWP.RIYADH,RWP.TABUK,RWP.AQABA,RWP.TABA,RWP.CAIRO]; // Egypt
+  if(_inBox(dest,36,43,25,45)) return [...pre,RWP.DAMMAM,RWP.RIYADH,RWP.TABUK,RWP.AMMAN,RWP.DAMASCUS,RWP.GAZIANTEP,RWP.ISTANBUL]; // Turkey
+  if(la>36&&ln<30) return [...pre,RWP.DAMMAM,RWP.RIYADH,RWP.TABUK,RWP.AMMAN,RWP.DAMASCUS,RWP.GAZIANTEP,RWP.ISTANBUL,RWP.SOFIA,...(la>48?[RWP.FRANKFURT]:[])]; // Europe
+  if(_inBox(dest,25,40,44,66)) return [...pre,RWP.DAMMAM,RWP.BASRA,RWP.BAGHDAD,RWP.TEHRAN]; // Iran
+  if(_inBox(dest,20,36,60,82)) return [...pre,RWP.DAMMAM,RWP.BASRA,RWP.BAGHDAD,RWP.TEHRAN,RWP.KARACHI,...(ln>70?[RWP.LAHORE]:[]),...(ln>74?[RWP.DELHI]:[])]; // Pakistan/India
+  return [...pre,RWP.DAMMAM]; // Default: just get to Saudi
+}
+
+// Road routing between two non-Bahrain points
+function _roadBetween(from,to){
+  const fromUAE=_inBox(from,22,27,51,57),toUAE=_inBox(to,22,27,51,57);
+  const fromSA =_inBox(from,15,33,36,57),toSA =_inBox(to,15,33,36,57);
+  const fromOM =_inBox(from,16,25,55,62),toOM =_inBox(to,16,25,55,62);
+  const fromTR =_inBox(from,36,43,25,44),toTR =_inBox(to,36,43,25,44);
+  const fromEU =_inBox(from,36,60,-12,30),toEU =_inBox(to,36,60,-12,30);
+  const fromLEV=_inBox(from,29,35,34,40),toLEV=_inBox(to,29,35,34,40);
+  const fromEG =_inBox(from,21,32,24,37),toEG =_inBox(to,21,32,24,37);
+  const fromIR =_inBox(from,25,40,44,65),toIR =_inBox(to,25,40,44,65);
+  const fromIQ =_inBox(from,29,38,44,50),toIQ =_inBox(to,29,38,44,50);
+  const [fla,fln]=from,[tla,tln]=to;
+
+  if(fromUAE&&toOM) return [RWP.AL_AIN];
+  if(fromOM&&toUAE) return [RWP.AL_AIN];
+  if(fromSA&&toUAE) return [RWP.SA_UAE];
+  if(fromUAE&&toSA) return [RWP.SA_UAE];
+  if(fromSA&&toOM)  return [RWP.SA_UAE,RWP.AL_AIN];
+  if(fromOM&&toSA)  return [RWP.AL_AIN,RWP.SA_UAE];
+  if(fromUAE&&toIQ) return [RWP.SA_UAE,RWP.DAMMAM,RWP.BASRA];
+  if(fromSA&&toIQ)  return [RWP.BASRA];
+  if(fromIQ&&toSA)  return [RWP.BASRA];
+  if(fromSA&&toLEV) return [RWP.TABUK,RWP.AMMAN];
+  if(fromLEV&&toSA) return [RWP.AMMAN,RWP.TABUK];
+  if((fromSA||fromLEV)&&toEG) return [RWP.TABUK,RWP.AQABA,RWP.TABA,RWP.CAIRO];
+  if(fromEG&&(toSA||toLEV))   return [RWP.CAIRO,RWP.TABA,RWP.AQABA,RWP.AMMAN];
+  if(fromEG&&toLEV) return [RWP.CAIRO,RWP.TABA,RWP.AQABA,RWP.AMMAN];
+  if(fromLEV&&toEG) return [RWP.AMMAN,RWP.AQABA,RWP.TABA,RWP.CAIRO];
+  if((fromSA||fromLEV||fromIQ)&&toTR) return [RWP.AMMAN,RWP.DAMASCUS,RWP.GAZIANTEP,RWP.ISTANBUL];
+  if(fromTR&&(toSA||toLEV))  return [RWP.ISTANBUL,RWP.GAZIANTEP,RWP.DAMASCUS,RWP.AMMAN];
+  if(fromTR&&toEU)  return [RWP.ISTANBUL,RWP.SOFIA];
+  if(fromEU&&toTR)  return [RWP.SOFIA,RWP.ISTANBUL];
+  if((fromSA||fromUAE||fromLEV)&&toEU) return [RWP.AMMAN,RWP.DAMASCUS,RWP.GAZIANTEP,RWP.ISTANBUL,RWP.SOFIA,...(tla>48?[RWP.FRANKFURT]:[])];
+  if(fromEU&&(toSA||toUAE||toLEV)) return [RWP.SOFIA,RWP.ISTANBUL,RWP.GAZIANTEP,RWP.DAMASCUS,RWP.AMMAN];
+  if(fromIR&&toTR)  return [RWP.TEHRAN,RWP.TABRIZ,RWP.ISTANBUL];
+  if(fromTR&&toIR)  return [RWP.ISTANBUL,RWP.TABRIZ,RWP.TEHRAN];
+  if(fromIR&&(toSA||toUAE)) return [RWP.TEHRAN,RWP.BAGHDAD,RWP.BASRA];
+  if((fromSA||fromUAE)&&toIR) return [RWP.BASRA,RWP.BAGHDAD,RWP.TEHRAN];
+  if(fromIR&&toEU) return [RWP.TEHRAN,RWP.TABRIZ,RWP.ISTANBUL,RWP.SOFIA];
+  return [];
+}
+
+function buildRoadRoute(from,to){
+  const fromBH=_inBox(from,25.9,26.6,50.35,50.75);
+  const toBH  =_inBox(to,  25.9,26.6,50.35,50.75);
+  let wps;
+  if(fromBH||toBH){
+    const other=fromBH?to:from;
+    wps=_fromKFC(other);
+    if(toBH) wps=[...wps].reverse();
+  } else {
+    wps=_roadBetween(from,to);
+  }
+  if(!wps.length) return buildDirectRoute(from,to);
+  return catmullRom([from,...wps,to],16);
 }
 
 const PORT_COORDS={
@@ -735,7 +915,7 @@ function renderShipmentsMap(shipments){
     const st=sh.status.toLowerCase();
     const colour=isRerouted?'#f97316':st.includes('delay')||st.includes('block')?'#ef4444':st.includes('custom')?'#f59e0b':st.includes('arrived')||st.includes('cleared')?'#22c55e':isAir?'#a78bfa':isRoad?'#fb923c':'#3b82f6';
 
-    const route=(isAir||isRoad)?buildDirectRoute(from,to):buildRoute(from,to);
+    const route=isAir?buildDirectRoute(from,to):isRoad?buildRoadRoute(from,to):buildRoute(from,to);
 
     // Shadow/glow line (thicker, lower opacity)
     L.polyline(route,{color:colour,weight:5,opacity:0.18,smoothFactor:1}).addTo(map);
