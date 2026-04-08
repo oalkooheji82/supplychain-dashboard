@@ -339,42 +339,92 @@ const INCOTERMS_LIST = ["EXW","FOB","CIF","CFR","DDP","DAP","FCA","CPT","CIP"];
 // VESSEL TRACKING MAP
 // ═══════════════════════════════════════════════
 const PORT_COORDS={
-  // Gulf / Middle East
-  'bahrain':[26.23,50.58],'khalifa bin salman':[26.10,50.62],'mina salman':[26.20,50.60],
-  'jebel ali':[25.01,55.06],'dubai':[25.01,55.06],'port rashid':[25.27,55.28],
-  'abu dhabi':[24.47,54.37],'zayed':[24.47,54.37],
-  'muscat':[23.63,58.59],'sohar':[24.35,56.72],'salalah':[17.02,54.09],
-  'dammam':[26.43,50.10],'jubail':[27.01,49.66],
-  'kuwait':[29.37,47.97],'shuwaikh':[29.37,47.93],
-  'jeddah':[21.49,39.18],'king abdulaziz':[21.49,39.18],
+  // Bahrain
+  'khalifa bin salman':[26.10,50.62],'mina salman':[26.20,50.60],'bahrain':[26.23,50.58],
+  // UAE
+  'jebel ali':[25.01,55.06],'dubai':[25.26,55.30],'port rashid':[25.27,55.28],
+  'khalifa port':[24.80,54.63],'zayed port':[24.47,54.37],'abu dhabi':[24.47,54.37],
+  'khorfakkan':[25.34,56.36],'fujairah':[25.12,56.34],'hamriyah':[25.41,55.44],
+  // Saudi Arabia
+  'king abdulaziz':[26.43,50.10],'dammam':[26.43,50.10],
+  'jeddah islamic':[21.49,39.18],'jeddah':[21.49,39.18],
+  'jubail':[27.01,49.66],'yanbu':[24.09,38.06],'jizan':[16.89,42.56],
+  // Kuwait
+  'shuwaikh':[29.37,47.93],'shuaiba':[29.05,48.15],'kuwait':[29.37,47.97],
+  // Oman
+  'sultan qaboos':[23.63,58.59],'muscat':[23.63,58.59],
+  'sohar':[24.35,56.72],'salalah':[17.02,54.09],
+  // Qatar
+  'hamad port':[24.94,51.60],'ras laffan':[25.90,51.58],'doha':[25.29,51.53],
+  // Iraq / Iran
+  'umm qasr':[30.03,47.93],'basra':[30.52,47.82],
+  'bandar abbas':[27.18,56.27],'bandar imam':[30.43,49.07],
+  'bushehr':[28.97,50.84],'chabahar':[25.29,60.64],
+  // Levant / Egypt
   'aqaba':[29.52,35.00],'beirut':[33.90,35.50],
-  'bandar abbas':[27.18,56.27],'umm qasr':[30.03,47.93],'basra':[30.52,47.82],
-  'aden':[12.78,44.98],
+  'port said':[31.26,32.30],'alexandria':[31.20,29.95],'damietta':[31.42,31.81],
+  'aden':[12.78,44.98],'hodeidah':[14.80,42.95],
+  // Turkey / Greece / Cyprus
+  'ambarli':[40.97,28.69],'istanbul':[41.01,28.97],
+  'mersin':[36.80,34.63],'izmir':[38.44,27.14],'derince':[40.76,29.82],
+  'piraeus':[37.94,23.63],'limassol':[34.67,33.05],
   // India
-  'nhava sheva':[18.95,72.95],'jnpt':[18.95,72.95],
+  'nhava sheva':[18.95,72.95],'jnpt':[18.95,72.95],'jawaharlal nehru':[18.95,72.95],
   'mumbai':[18.95,72.84],'mundra':[22.84,69.70],
-  'chennai':[13.08,80.29],'cochin':[9.97,76.27],'kochi':[9.97,76.27],
-  'vizag':[17.69,83.28],'visakhapatnam':[17.69,83.28],
+  'pipavav':[20.90,71.51],'deendayal':[23.03,70.22],'kandla':[23.03,70.22],
+  'chennai':[13.08,80.29],'kattupalli':[13.23,80.32],
+  'cochin':[9.97,76.27],'kochi':[9.97,76.27],
+  'visakhapatnam':[17.69,83.28],'vizag':[17.69,83.28],
   'kolkata':[22.55,88.34],'haldia':[22.07,88.08],
-  'karachi':[24.86,66.99],
-  // SE Asia / Far East
-  'singapore':[1.26,103.82],'port klang':[3.00,101.40],'penang':[5.41,100.34],
-  'colombo':[6.93,79.86],
-  'shanghai':[31.23,121.47],'ningbo':[29.87,121.55],'tianjin':[39.00,117.72],
-  'qingdao':[36.07,120.32],'xiamen':[24.48,118.07],
-  'shenzhen':[22.54,114.06],'yantian':[22.57,114.27],'nansha':[22.74,113.63],
-  'guangzhou':[23.13,113.26],'hong kong':[22.29,114.16],
-  'busan':[35.10,129.04],'tokyo':[35.63,139.88],'yokohama':[35.44,139.64],
-  'bangkok':[13.68,100.90],'laem chabang':[13.08,100.89],
+  'new mangalore':[12.92,74.81],
+  // Pakistan / Sri Lanka / Bangladesh
+  'karachi':[24.86,66.99],'port qasim':[24.78,67.32],'gwadar':[25.12,62.33],
+  'colombo':[6.93,79.86],'hambantota':[6.12,81.12],
+  'chattogram':[22.34,91.83],'chittagong':[22.34,91.83],
+  // SE Asia
+  'singapore':[1.26,103.82],
+  'port klang':[3.00,101.40],'tanjung pelepas':[1.36,103.55],'penang':[5.41,100.34],
+  'laem chabang':[13.08,100.89],'bangkok':[13.68,100.90],
   'ho chi minh':[10.78,106.72],'haiphong':[20.86,106.69],
-  'jakarta':[6.10,106.88],'tanjung priok':[6.10,106.88],
+  'tanjung priok':[6.10,106.88],'jakarta':[6.10,106.88],
+  'tanjung perak':[7.20,112.73],'surabaya':[7.20,112.73],
+  'manila':[14.58,120.97],
+  // China
+  'shanghai':[31.23,121.47],'ningbo':[29.87,121.55],'ningbo-zhoushan':[29.87,121.55],
+  'shenzhen':[22.54,114.06],'yantian':[22.57,114.27],
+  'guangzhou':[23.13,113.26],'nansha':[22.74,113.63],
+  'tianjin':[39.00,117.72],'qingdao':[36.07,120.32],
+  'xiamen':[24.48,118.07],'dalian':[38.92,121.65],'fuzhou':[26.05,119.33],
+  'hong kong':[22.29,114.16],
+  // Korea / Japan
+  'busan':[35.10,129.04],'incheon':[37.46,126.62],
+  'yokohama':[35.44,139.64],'tokyo':[35.63,139.88],
+  'nagoya':[35.06,136.88],'kobe':[34.68,135.20],'osaka':[34.65,135.43],
   // Europe
-  'rotterdam':[51.95,4.13],'hamburg':[53.55,9.97],
-  'antwerp':[51.23,4.40],'felixstowe':[51.96,1.35],
-  'le havre':[49.49,0.11],'genoa':[44.41,8.92],
-  'barcelona':[41.35,2.18],'valencia':[39.45,0.32],
-  'piraeus':[37.94,23.63],'istanbul':[41.01,28.97],'mersin':[36.80,34.63],
-  'limassol':[34.67,33.05],
+  'rotterdam':[51.95,4.13],'hamburg':[53.55,9.97],'bremen':[53.07,8.81],
+  'antwerp':[51.23,4.40],
+  'felixstowe':[51.96,1.35],'london':[51.51,0.09],'southampton':[50.90,-1.40],
+  'le havre':[49.49,0.11],'marseille':[43.30,5.37],
+  'genoa':[44.41,8.92],'gioia tauro':[38.42,15.90],'la spezia':[44.10,9.82],
+  'valencia':[39.45,0.32],'barcelona':[41.35,2.18],'algeciras':[36.13,-5.45],
+  // Airports (air freight — map to city coords)
+  'bahrain international':[26.27,50.63],
+  'dubai international':[25.25,55.36],
+  'abu dhabi international':[24.43,54.65],
+  'sharjah international':[25.33,55.52],
+  'kuwait international':[29.23,47.97],
+  'hamad international':[25.27,51.61],
+  'muscat international':[23.59,58.28],
+  'king khalid':[24.96,46.70],'riyadh':[24.96,46.70],
+  'king abdulaziz airport':[21.67,39.16],
+  'indira gandhi':[28.56,77.10],'delhi':[28.56,77.10],
+  'chhatrapati shivaji':[19.09,72.87],
+  'changi':[1.36,103.99],
+  'pudong':[31.14,121.80],
+  'frankfurt':[50.04,8.56],
+  'schiphol':[52.31,4.77],'amsterdam':[52.31,4.77],
+  'heathrow':[51.47,-0.46],
+  'istanbul airport':[41.27,28.74],
 };
 function getPortCoords(name){
   if(!name) return null;
