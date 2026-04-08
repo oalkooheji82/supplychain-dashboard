@@ -773,12 +773,15 @@ function openVesselPanel(sh,pct){
   if(!panel) return;
   document.getElementById('vesselPanelTitle').textContent=(vessel||sh.carrier||'Shipment')+'  —  '+(sh.originPort||'')+' → '+(sh.destPort||'');
   const iframe=document.getElementById('vesselIframe');
-  if(vessel&&!isArrived){
-    iframe.src=`https://www.vesselfinder.com/widget2?names=${encodeURIComponent(vessel)}&zoom=5&shownames=1`;
-    iframe.style.display='block';
-  }else{iframe.src='';iframe.style.display='none';}
+  iframe.src=''; iframe.style.display='none';
   const lvl=userLevel();
   const rerouteRow=sh.rerouted==='Yes'?`<div style="grid-column:1/-1;padding:6px 0;border-top:1px solid var(--border-color);margin-top:4px"><span style="color:var(--text-muted);font-size:11px">REROUTED</span><br><span style="color:#718096">${esc(sh.vesselName||'—')}</span><span style="margin:0 8px">→</span><b>${esc(sh.reroutedVessel||'New vessel')}</b>${sh.rerouteReason?`<span style="color:var(--text-muted);margin-left:8px">(${esc(sh.rerouteReason)})</span>`:''}</div>`:'';
+  const vfUrl=vessel?`https://www.vesselfinder.com/vessels?name=${encodeURIComponent(vessel)}`:'';
+  const mtUrl=vessel?`https://www.marinetraffic.com/en/ais/home/centerx:${(sh.originPort&&sh.destPort)?'50':'50'}/centery:25/zoom:4/search:${encodeURIComponent(vessel)}`:'';
+  const trackBtns=vessel&&!isArrived?`<div style="grid-column:1/-1;display:flex;gap:10px;margin-top:6px;flex-wrap:wrap">
+    <a href="${vfUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:#0d4f8c;color:#fff;border-radius:7px;font-size:12px;font-weight:600;text-decoration:none">🔍 Track on VesselFinder</a>
+    <a href="${mtUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:#1a4e3a;color:#fff;border-radius:7px;font-size:12px;font-weight:600;text-decoration:none">🗺️ Track on MarineTraffic</a>
+  </div>`:'';
   document.getElementById('vesselDetails').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;font-size:13px">
     <div><span style="color:var(--text-muted);font-size:11px">SUPPLIER</span><br><b>${esc(sh.supplier||'—')}</b></div>
     <div><span style="color:var(--text-muted);font-size:11px">STATUS</span><br><b style="color:${isArrived?'#38a169':'inherit'}">${esc(sh.status||'—')}</b></div>
@@ -788,8 +791,10 @@ function openVesselPanel(sh,pct){
     <div><span style="color:var(--text-muted);font-size:11px">BL / AWB</span><br>${esc(sh.blAwb||'—')}</div>
     ${vessel?`<div><span style="color:var(--text-muted);font-size:11px">VESSEL</span><br>${esc(vessel)}</div>`:''}
     ${lvl>=3&&sh.carrier?`<div><span style="color:var(--text-muted);font-size:11px">CARRIER</span><br>${esc(sh.carrier)}</div>`:''}
+    ${sh.countryOfDest?`<div><span style="color:var(--text-muted);font-size:11px">DEST COUNTRY</span><br>${esc(sh.countryOfDest)}</div>`:''}
     ${sh.delayReason?`<div style="grid-column:1/-1"><span style="color:#e53e3e;font-size:11px">⚠️ DELAY</span><br>${esc(sh.delayReason)}</div>`:''}
     ${rerouteRow}
+    ${trackBtns}
   </div>`;
   panel.style.display='block';
   panel.scrollIntoView({behavior:'smooth',block:'nearest'});
