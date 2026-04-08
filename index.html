@@ -744,9 +744,9 @@ function renderShipmentsMap(shipments){
     }
 
     const iconHtml=isArrived
-      ?`<div style="font-size:18px;filter:drop-shadow(0 0 4px #22c55e);transform:translate(-50%,-50%)">⚓</div>`
-      :`<div style="font-size:20px;filter:drop-shadow(0 0 6px ${colour});transform:translate(-50%,-50%)">🚢</div>`;
-    const icon=L.divIcon({html:iconHtml,className:'',iconSize:[28,28],iconAnchor:[14,14]});
+      ?`<div style="font-size:22px;line-height:1;cursor:pointer">⚓</div>`
+      :`<div style="font-size:24px;line-height:1;cursor:pointer;filter:drop-shadow(0 0 6px ${colour})">🚢</div>`;
+    const icon=L.divIcon({html:iconHtml,className:'leaflet-interactive',iconSize:[28,28],iconAnchor:[14,14]});
     const marker=L.marker(pos,{icon}).addTo(map);
     marker.on('click',()=>openVesselPanel(sh,prog));
 
