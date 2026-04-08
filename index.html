@@ -638,21 +638,17 @@ function _isHidden(sh){return HIDE_STATUSES.some(x=>sh.status.toLowerCase().incl
 function renderShipmentsMap(shipments){
   const visible=shipments.filter(s=>!_isHidden(s)&&s.originPort&&s.destPort);
   const wrap=document.getElementById('shipmentsMapWrap');
-  if(!wrap) return;
-
-  // Debug: always show wrap so we can see status
+  if(!wrap){console.error('[Map] shipmentsMapWrap not found');return;}
   wrap.style.display='';
+
   const dbg=document.getElementById('mapDebug');
+  const matched=visible.filter(s=>getPortCoords(s.originPort)&&getPortCoords(s.destPort));
   if(dbg){
-    const matched=visible.filter(s=>getPortCoords(s.originPort)&&getPortCoords(s.destPort));
-    dbg.textContent=`Ships in Excel: ${shipments.length} | Visible (not delivered): ${visible.length} | Coords matched: ${matched.length}`
-      +(visible.length&&!matched.length?' — port names not matched in coord table':'');
-    dbg.style.display='block';
-    if(!matched.length){
-      visible.slice(0,5).forEach(s=>console.log('[Map]',s.supplier||s.item,'| origin:',s.originPort,'→',getPortCoords(s.originPort)?'OK':'MISS','| dest:',s.destPort,'→',getPortCoords(s.destPort)?'OK':'MISS'));
-    }
+    dbg.innerHTML=`<span style="color:#f00;font-weight:bold;font-size:13px">MAP DEBUG — Total: ${shipments.length} | Active+ports: ${visible.length} | Coord-matched: ${matched.length}</span>`
+      +(visible.slice(0,3).map(s=>`<br>${s.supplier||s.item}: origin="${s.originPort}"(${getPortCoords(s.originPort)?'✓':'✗'}) dest="${s.destPort}"(${getPortCoords(s.destPort)?'✓':'✗'})`).join(''));
+    dbg.style.cssText='display:block!important;padding:8px;background:#1a1a1a;border:2px solid red;border-radius:6px;margin-bottom:8px;font-size:12px;color:#fff';
   }
-  if(!visible.length) return;
+  if(!matched.length) return;
   if(window._trackingMap){window._trackingMap.remove();window._trackingMap=null;}
 
   const map=L.map('shipmentsMap',{zoomControl:true,preferCanvas:false});
