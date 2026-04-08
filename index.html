@@ -6,6 +6,8 @@
 <title>AJM Kooheji Group - Supply Chain Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root{--bg-primary:#080e1a;--bg-secondary:#0d1828;--bg-tertiary:#121f32;--card-bg:#0d1828;--text-primary:#dce8f5;--text-muted:#5c7898;--border-color:#1a2f46;--header-bg:#060c18;--header-text:#6a8cb2}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -321,7 +323,7 @@ const BACKEND_URL = 'https://supplychain-bot-production.up.railway.app';
 // ── Auth state ──────────────────────────────────
 let authToken = localStorage.getItem('sc_token') || '';
 let currentUser = null;  // {username, full_name, tier, role, divisions, must_change_password}
-let _pendingUsername = '';
+let _pendingUsername = sessionStorage.getItem('sc_pending_user') || '';
 let _resendInterval = null;
 
 // ═══════════════════════════════════════════════
@@ -332,6 +334,144 @@ const PROJECT_DIVISIONS = ["Delmon Furniture Factory","AJK Unity","Pearl Craft"]
 const LOCAL_STAGES = ["PR Received","Sourcing / Quotation","Pending Approval","PO Issued","Supplier Confirmation","In Transit / Out for Delivery","Received at Warehouse","Closed / Completed","Cancelled"];
 const INTL_STAGES = ["PR Received","Sourcing / Quotation","Pending Approval","PO Issued","Supplier Confirmation / PI Received","Payment Processing","Production / Manufacturing","Ready for Shipment","Booking & Documentation","In Transit (Sea/Air)","Arrived at Port / Airport","Customs Clearance","Released & In Transit to Warehouse","Received at Warehouse","Closed / Completed"];
 const INCOTERMS_LIST = ["EXW","FOB","CIF","CFR","DDP","DAP","FCA","CPT","CIP"];
+
+// ═══════════════════════════════════════════════
+// VESSEL TRACKING MAP
+// ═══════════════════════════════════════════════
+const PORT_COORDS={
+  // Gulf / Middle East
+  'bahrain':[26.23,50.58],'khalifa bin salman':[26.10,50.62],'mina salman':[26.20,50.60],
+  'jebel ali':[25.01,55.06],'dubai':[25.01,55.06],'port rashid':[25.27,55.28],
+  'abu dhabi':[24.47,54.37],'zayed':[24.47,54.37],
+  'muscat':[23.63,58.59],'sohar':[24.35,56.72],'salalah':[17.02,54.09],
+  'dammam':[26.43,50.10],'jubail':[27.01,49.66],
+  'kuwait':[29.37,47.97],'shuwaikh':[29.37,47.93],
+  'jeddah':[21.49,39.18],'king abdulaziz':[21.49,39.18],
+  'aqaba':[29.52,35.00],'beirut':[33.90,35.50],
+  'bandar abbas':[27.18,56.27],'umm qasr':[30.03,47.93],'basra':[30.52,47.82],
+  'aden':[12.78,44.98],
+  // India
+  'nhava sheva':[18.95,72.95],'jnpt':[18.95,72.95],
+  'mumbai':[18.95,72.84],'mundra':[22.84,69.70],
+  'chennai':[13.08,80.29],'cochin':[9.97,76.27],'kochi':[9.97,76.27],
+  'vizag':[17.69,83.28],'visakhapatnam':[17.69,83.28],
+  'kolkata':[22.55,88.34],'haldia':[22.07,88.08],
+  'karachi':[24.86,66.99],
+  // SE Asia / Far East
+  'singapore':[1.26,103.82],'port klang':[3.00,101.40],'penang':[5.41,100.34],
+  'colombo':[6.93,79.86],
+  'shanghai':[31.23,121.47],'ningbo':[29.87,121.55],'tianjin':[39.00,117.72],
+  'qingdao':[36.07,120.32],'xiamen':[24.48,118.07],
+  'shenzhen':[22.54,114.06],'yantian':[22.57,114.27],'nansha':[22.74,113.63],
+  'guangzhou':[23.13,113.26],'hong kong':[22.29,114.16],
+  'busan':[35.10,129.04],'tokyo':[35.63,139.88],'yokohama':[35.44,139.64],
+  'bangkok':[13.68,100.90],'laem chabang':[13.08,100.89],
+  'ho chi minh':[10.78,106.72],'haiphong':[20.86,106.69],
+  'jakarta':[6.10,106.88],'tanjung priok':[6.10,106.88],
+  // Europe
+  'rotterdam':[51.95,4.13],'hamburg':[53.55,9.97],
+  'antwerp':[51.23,4.40],'felixstowe':[51.96,1.35],
+  'le havre':[49.49,0.11],'genoa':[44.41,8.92],
+  'barcelona':[41.35,2.18],'valencia':[39.45,0.32],
+  'piraeus':[37.94,23.63],'istanbul':[41.01,28.97],'mersin':[36.80,34.63],
+  'limassol':[34.67,33.05],
+};
+function getPortCoords(name){
+  if(!name) return null;
+  const k=name.toLowerCase().trim();
+  if(PORT_COORDS[k]) return PORT_COORDS[k];
+  for(const p of Object.keys(PORT_COORDS))
+    if(k.includes(p)||p.includes(k)) return PORT_COORDS[p];
+  return null;
+}
+function activeVessel(sh){
+  return (sh.rerouted==='Yes'&&sh.reroutedVessel)?sh.reroutedVessel:sh.vesselName;
+}
+const ARRIVED_STATUSES=['arrived','customs cleared'];
+const HIDE_STATUSES=['delivered','closed / completed','cancelled'];
+function _isArrived(sh){return ARRIVED_STATUSES.some(x=>sh.status.toLowerCase().includes(x));}
+function _isHidden(sh){return HIDE_STATUSES.some(x=>sh.status.toLowerCase().includes(x));}
+
+function renderShipmentsMap(shipments){
+  const visible=shipments.filter(s=>!_isHidden(s)&&s.originPort&&s.destPort);
+  const wrap=document.getElementById('shipmentsMapWrap');
+  if(!wrap) return;
+  console.log('[Map] Total shipments:',shipments.length,'| Visible (non-hidden, has ports):',visible.length);
+  visible.forEach(s=>{
+    const from=getPortCoords(s.originPort), to=getPortCoords(s.destPort);
+    console.log(`[Map] ${s.supplier||s.item} | origin:"${s.originPort}" (${from?'OK':'NOT FOUND'}) | dest:"${s.destPort}" (${to?'OK':'NOT FOUND'}) | status:"${s.status}" | vessel:"${s.vesselName}"`);
+  });
+  if(!visible.length){wrap.style.display='none';return;}
+  wrap.style.display='';
+  if(window._trackingMap){window._trackingMap.remove();window._trackingMap=null;}
+  const map=L.map('shipmentsMap',{zoomControl:true});
+  window._trackingMap=map;
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(map);
+  const bounds=[];
+  for(const sh of visible){
+    const from=getPortCoords(sh.originPort);
+    const to=getPortCoords(sh.destPort);
+    if(!from||!to) continue;
+    const isRerouted=sh.rerouted==='Yes';
+    const isArrived=_isArrived(sh);
+    const colour=isRerouted?'#dd6b20':sh.status.toLowerCase().includes('delay')?'#e53e3e':sh.status.toLowerCase().includes('custom')?'#ed8936':sh.status.toLowerCase().includes('transit')?'#3182ce':'#38a169';
+    const mid=[(from[0]+to[0])/2+(to[1]-from[1])*0.15,(from[1]+to[1])/2-(to[0]-from[0])*0.15];
+    const arc=[];
+    for(let i=0;i<=24;i++){const t=i/24;arc.push([(1-t)*(1-t)*from[0]+2*(1-t)*t*mid[0]+t*t*to[0],(1-t)*(1-t)*from[1]+2*(1-t)*t*mid[1]+t*t*to[1]]);}
+    L.polyline(arc,{color:colour,weight:2,opacity:0.55,dashArray:'6,4'}).addTo(map);
+    let pos,prog;
+    if(isArrived){pos=to;prog=100;}
+    else{
+      const etd=sh.etd?new Date(sh.etd):null;const eta=sh.eta?new Date(sh.eta):null;prog=50;
+      if(etd&&eta&&eta>etd) prog=Math.round(Math.max(0,Math.min(1,(new Date()-etd)/(eta-etd)))*100);
+      pos=arc[Math.round(prog/100*24)];
+    }
+    const iconHtml=isArrived?'<div style="font-size:20px;transform:translate(-50%,-50%)">⚓</div>':'<div style="font-size:22px;transform:translate(-50%,-50%)">🚢</div>';
+    const icon=L.divIcon({html:iconHtml,className:'',iconSize:[28,28],iconAnchor:[14,14]});
+    const marker=L.marker(pos,{icon}).addTo(map);
+    marker.on('click',()=>openVesselPanel(sh,prog));
+    const tip=isArrived?`${sh.supplier||sh.item} · Arrived at ${sh.destPort}`:`${sh.supplier||sh.item} · ${prog}% complete${isRerouted?' · 🔀 Rerouted':''}`;
+    marker.bindTooltip(tip,{direction:'top'});
+    bounds.push(from,to);
+  }
+  if(bounds.length) map.fitBounds(bounds,{padding:[30,30]});
+}
+
+function openVesselPanel(sh,pct){
+  const vessel=activeVessel(sh);
+  const isArrived=_isArrived(sh);
+  const panel=document.getElementById('vesselPanel');
+  if(!panel) return;
+  document.getElementById('vesselPanelTitle').textContent=(vessel||sh.carrier||'Shipment')+'  —  '+(sh.originPort||'')+' → '+(sh.destPort||'');
+  const iframe=document.getElementById('vesselIframe');
+  if(vessel&&!isArrived){
+    iframe.src=`https://www.vesselfinder.com/widget2?names=${encodeURIComponent(vessel)}&zoom=5&shownames=1`;
+    iframe.style.display='block';
+  }else{iframe.src='';iframe.style.display='none';}
+  const lvl=userLevel();
+  const rerouteRow=sh.rerouted==='Yes'?`<div style="grid-column:1/-1;padding:6px 0;border-top:1px solid var(--border-color);margin-top:4px"><span style="color:var(--text-muted);font-size:11px">REROUTED</span><br><span style="color:#718096">${esc(sh.vesselName||'—')}</span><span style="margin:0 8px">→</span><b>${esc(sh.reroutedVessel||'New vessel')}</b>${sh.rerouteReason?`<span style="color:var(--text-muted);margin-left:8px">(${esc(sh.rerouteReason)})</span>`:''}</div>`:'';
+  document.getElementById('vesselDetails').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;font-size:13px">
+    <div><span style="color:var(--text-muted);font-size:11px">SUPPLIER</span><br><b>${esc(sh.supplier||'—')}</b></div>
+    <div><span style="color:var(--text-muted);font-size:11px">STATUS</span><br><b style="color:${isArrived?'#38a169':'inherit'}">${esc(sh.status||'—')}</b></div>
+    <div><span style="color:var(--text-muted);font-size:11px">JOURNEY</span><br><b>${isArrived?'Arrived ✅':pct+'% complete'}</b></div>
+    <div><span style="color:var(--text-muted);font-size:11px">ETD</span><br>${sh.etd||'—'}</div>
+    <div><span style="color:var(--text-muted);font-size:11px">ETA</span><br>${sh.eta||'—'}</div>
+    <div><span style="color:var(--text-muted);font-size:11px">BL / AWB</span><br>${esc(sh.blAwb||'—')}</div>
+    ${vessel?`<div><span style="color:var(--text-muted);font-size:11px">VESSEL</span><br>${esc(vessel)}</div>`:''}
+    ${lvl>=3&&sh.carrier?`<div><span style="color:var(--text-muted);font-size:11px">CARRIER</span><br>${esc(sh.carrier)}</div>`:''}
+    ${sh.delayReason?`<div style="grid-column:1/-1"><span style="color:#e53e3e;font-size:11px">⚠️ DELAY</span><br>${esc(sh.delayReason)}</div>`:''}
+    ${rerouteRow}
+  </div>`;
+  panel.style.display='block';
+  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function closeVesselPanel(){
+  const iframe=document.getElementById('vesselIframe');
+  const panel=document.getElementById('vesselPanel');
+  if(iframe) iframe.src='';
+  if(panel) panel.style.display='none';
+}
 const STAGE_COLORS = {"PR Received":"#6366f1","Sourcing / Quotation":"#6148c5","Pending Approval":"#d4891a","PO Issued":"#2d6fd4","Supplier Confirmation":"#0891b2","Supplier Confirmation / PI Received":"#0891b2","Payment Processing":"#c0612e","Production / Manufacturing":"#6148c5","Ready for Shipment":"#14b8a6","Booking & Documentation":"#4e6580","In Transit / Out for Delivery":"#0d9e80","In Transit (Sea/Air)":"#0d9e80","Arrived at Port / Airport":"#0c7fb8","Customs Clearance":"#d4891a","Released & In Transit to Warehouse":"#1a9e55","Received at Warehouse":"#14784a","Closed / Completed":"#4e6580"};
 const IMPACT_COLORS = {Critical:"#b83232",High:"#c0612e",Medium:"#d4891a",Low:"#1a9e55"};
 
@@ -417,7 +557,7 @@ function parseExcel(arrayBuffer){
       direction:r['Direction']||'Import', poRef:r['PO Reference']||'', supplier:r['Supplier / Consignee']||'',
       country:r['Country']||'', item:r['Item Description']||'', incoterms:r['Incoterms']||'',
       originPort:r['Origin Port / City']||'', destPort:r['Destination Port / City']||'',
-      mode:r['Shipment Mode']||'', carrier:r['Carrier / Shipping Line']||'', blAwb:r['BL / AWB Number']||'',
+      mode:r['Shipment Mode']||'', carrier:r['Carrier / Shipping Line']||'', blAwb:r['BL / AWB Number']||'', vesselName:r['Vessel Name']||'', reroutedVessel:r['Rerouted Vessel']||'',
       cnt20:num(r['No. of 20ft Containers']),cnt40:num(r['No. of 40ft Containers']),
       cnt40hc:num(r['No. of 40ft HC Containers']),lclCbm:num(r['LCL CBM']),
       packages:num(r['Total Packages / Pallets']),
@@ -1084,8 +1224,10 @@ function renderShipments(shAll,shipF,isCon){
   const totalClearing=shAll.reduce((s,d)=>s+(d.totalClearing||0),0);
   const delayReasons=[...new Set(delayed.map(s=>s.delayReason).filter(Boolean))].sort();
 
+  window._pendingMapShipments=shAll;
   const lvlS=userLevel();
-  let h='<div class="grid grid-6">'+
+  let h='<div id="shipmentsMapWrap" style="margin-bottom:18px;"><div id="shipmentsMap" style="height:360px;border-radius:10px;border:1px solid var(--border-color);"></div><div id="vesselPanel" style="display:none;margin-top:12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;overflow:hidden;"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border-color);"><span id="vesselPanelTitle" style="font-weight:600;font-size:14px;"></span><button onclick="closeVesselPanel()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-muted);">✕</button></div><iframe id="vesselIframe" style="width:100%;height:400px;border:none;display:block;" loading="lazy"></iframe><div id="vesselDetails" style="padding:12px 14px;line-height:1.8;border-top:1px solid var(--border-color);"></div></div></div>';
+  h+='<div class="grid grid-6">'+
     metricCard('🚢','Total Shipments',shAll.length,'#0d9e80',impSh.length+' imp, '+expSh.length+' exp')+
     (lvlS>=4?metricCard('📦','Containers',totalCont,'#0891b2',contSub):'')+
     metricCard('⏳','In Transit',shipF.filter(d=>['Loaded / Departed','In Transit','Transshipment'].includes(d.status)).length,'#2d6fd4')+
@@ -1334,6 +1476,7 @@ function renderTabs(){
 
 function renderContent(){
   _pendingCharts={};
+  window._pendingMapShipments=null;
   const {lp,ip,sh,shipF,es}=getFiltered();
   const isCon=activeDivision==='Consolidated View';
   const del=filterByDiv(DATA.deliveries);
@@ -1347,7 +1490,7 @@ function renderContent(){
   else if(activeTab==='admin') html=renderAdminPanel();
   else if(activeTab==='agent') html=renderAgentTab();
   document.getElementById('dashContent').innerHTML=html;
-  setTimeout(initCharts,0);
+  setTimeout(()=>{initCharts();if(window._pendingMapShipments)renderShipmentsMap(window._pendingMapShipments);},0);
 }
 
 // ═══════════════════════════════════════════════
@@ -1369,12 +1512,19 @@ const TIER_LEVEL={admin:5,ceo:5,gm:4,director:3,manager:2,officer:1};
 function userLevel(){return currentUser?TIER_LEVEL[currentUser.tier]||1:0;}
 
 async function api(path,method='GET',body=null){
-  const opts={method,headers:{'Content-Type':'application/json',...(authToken?{Authorization:'Bearer '+authToken}:{})}};
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),15000);
+  const opts={method,signal:ctrl.signal,headers:{'Content-Type':'application/json',...(authToken?{Authorization:'Bearer '+authToken}:{})}};
   if(body) opts.body=JSON.stringify(body);
-  const res=await fetch(BACKEND_URL+path,opts);
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(data.detail||'Request failed');
-  return data;
+  try{
+    const res=await fetch(BACKEND_URL+path,opts);
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.detail||'Request failed');
+    return data;
+  }catch(e){
+    if(e.name==='AbortError') throw new Error('Request timed out. Please try again.');
+    throw e;
+  }finally{clearTimeout(tid);}
 }
 
 async function checkAuth(){
@@ -1464,6 +1614,7 @@ async function doLogin(){
   try{
     const r=await api('/auth/login','POST',{username,password});
     _pendingUsername=username;
+    sessionStorage.setItem('sc_pending_user',username);
     document.getElementById('otpDesc').textContent=`Code sent to ${r.full_name}'s Telegram`;
     showAuthScreen('otp');
     startResendTimer();
@@ -1472,7 +1623,7 @@ async function doLogin(){
   finally{btn.disabled=false;btn.textContent='Sign In →';}
 }
 
-function backToLogin(){clearInterval(_resendInterval);showAuthScreen('login');}
+function backToLogin(){clearInterval(_resendInterval);sessionStorage.removeItem('sc_pending_user');showAuthScreen('login');}
 
 // ── OTP ──
 function otpInput(el,idx){
@@ -1497,6 +1648,7 @@ async function doVerifyOTP(){
     authToken=r.token;
     localStorage.setItem('sc_token',authToken);
     currentUser=r.user;
+    sessionStorage.removeItem('sc_pending_user');
     clearInterval(_resendInterval);
     if(currentUser.must_change_password){showAuthScreen('changepw');}
     else{showAuthedUI();loadExcelData(false);}
@@ -1510,8 +1662,13 @@ async function doVerifyOTP(){
 
 async function doResend(){
   document.getElementById('resendBtn').disabled=true;
-  try{await api('/auth/resend-otp','POST',{username:_pendingUsername});startResendTimer();}
-  catch(e){console.error(e);}
+  try{
+    await api('/auth/resend-otp','POST',{username:_pendingUsername});
+    startResendTimer();
+  }catch(e){
+    showAuthErr(document.getElementById('otpErr'),'Could not resend code. Please go back and try again.');
+    document.getElementById('resendBtn').disabled=false;
+  }
 }
 
 function startResendTimer(){
@@ -1561,6 +1718,7 @@ async function doLogout(){
   try{await api('/auth/logout','POST');}catch(e){}
   authToken='';currentUser=null;
   localStorage.removeItem('sc_token');
+  sessionStorage.removeItem('sc_pending_user');
   document.getElementById('userBadge').innerHTML='';
   document.getElementById('userFullName').textContent='';
   document.getElementById('logoutBtn').style.display='none';
