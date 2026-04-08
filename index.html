@@ -626,6 +626,56 @@ const PORT_COORDS={
   'o\'hare':[41.98,-87.91],'chicago':[41.98,-87.91],
   'jfk':[40.64,-73.78],'lax':[33.94,-118.41],
   'pearson':[43.68,-79.63],'toronto':[43.68,-79.63],
+  // Common BL name variants
+  'xingang':[39.00,117.72],                          // Tianjin old port name
+  'tianjin xingang':[39.00,117.72],
+  'shekou':[22.48,113.85],                           // Shenzhen Shekou terminal
+  'chiwan':[22.48,113.84],
+  'dachan bay':[22.53,113.80],
+  'kwai chung':[22.37,114.14],                       // Hong Kong container port
+  'kwai tsing':[22.37,114.14],
+  'tanjung pelepas':[1.36,103.55],
+  'colombo south':[6.93,79.86],
+  'jnpt nhava sheva':[18.95,72.95],
+  'nhava sheva jnpt':[18.95,72.95],
+  'mundra port':[22.84,69.70],
+  'pipavav port':[20.90,71.51],
+  'hazira':[21.10,72.65],
+  'vallarpadam':[9.97,76.27],                        // Cochin container terminal
+  'krishnapatnam':[14.25,80.13],
+  'port qasim':[24.78,67.32],
+  'chittagong':[22.34,91.83],
+  'sihanoukville':[10.63,103.52],
+  'pasir gudang':[1.47,103.90],
+  'bintulu':[3.17,113.04],
+  'kota kinabalu':[5.98,116.07],
+  'belawan':[3.78,98.68],
+  'surabaya':[7.20,112.73],
+  'semarang':[6.97,110.41],
+  'makassar':[5.14,119.41],
+  'hcmc':[10.78,106.72],
+  'cat lai':[10.78,106.73],
+  'cai mep':[10.56,107.01],
+  'laem chabang':[13.08,100.89],
+  'manila north':[14.58,120.97],
+  'batangas':[13.75,121.06],
+  'subic':[14.79,120.27],
+  'pusan':[35.10,129.04],                            // Busan alternate spelling
+  'gwangyang':[34.93,127.72],
+  'incheon':[37.46,126.62],
+  'hakata':[33.59,130.41],
+  'nagoya port':[35.06,136.88],
+  'shimizu':[35.01,138.50],
+  'yokkaichi':[34.97,136.62],
+  'moji':[33.95,130.97],
+  'melbourne port':[37.82,144.93],
+  'sydney port':[33.86,151.21],
+  'brisbane port':[-27.47,153.04],
+  'fremantle port':[-32.05,115.74],
+  'novorossiysk':[44.72,37.80],
+  'king abdulaziz port':[26.43,50.10],
+  'jebel ali':[25.01,55.06],
+  'kbsp':[26.10,50.62],                              // Khalifa Bin Salman Port abbreviation
 };
 function getPortCoords(name){
   if(!name) return null;
@@ -649,20 +699,14 @@ function renderShipmentsMap(shipments){
   if(!wrap){console.error('[Map] shipmentsMapWrap not found');return;}
   wrap.style.display='';
 
-  const dbg=document.getElementById('mapDebug');
   const matched=visible.filter(s=>getPortCoords(s.originPort)&&getPortCoords(s.destPort));
-  if(dbg){
-    dbg.innerHTML=`<span style="color:#f00;font-weight:bold;font-size:13px">MAP DEBUG — Total: ${shipments.length} | Active+ports: ${visible.length} | Coord-matched: ${matched.length}</span>`
-      +(visible.slice(0,3).map(s=>`<br>${s.supplier||s.item}: origin="${s.originPort}"(${getPortCoords(s.originPort)?'✓':'✗'}) dest="${s.destPort}"(${getPortCoords(s.destPort)?'✓':'✗'})`).join(''));
-    dbg.style.cssText='display:block!important;padding:8px;background:#1a1a1a;border:2px solid red;border-radius:6px;margin-bottom:8px;font-size:12px;color:#fff';
-  }
   if(!matched.length) return;
   if(window._trackingMap){window._trackingMap.remove();window._trackingMap=null;}
 
   const map=L.map('shipmentsMap',{zoomControl:true,preferCanvas:false});
   window._trackingMap=map;
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    attribution:'© OpenStreetMap contributors',maxZoom:18
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',{
+    attribution:'© OpenStreetMap © CARTO',maxZoom:19,subdomains:'abcd'
   }).addTo(map);
   // Force Leaflet to recalculate container size after DOM insertion
   setTimeout(()=>map.invalidateSize(),100);
