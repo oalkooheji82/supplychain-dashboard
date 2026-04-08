@@ -8,7 +8,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>.ship-tooltip{background:#1a2f46;border:1px solid #2a4a6b;color:#dce8f5;padding:8px 12px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.4)}.ship-tooltip::before{display:none}</style>
+<style>
+.ship-tooltip{background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:10px 14px;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,0.7)}
+.ship-tooltip::before{display:none}
+@keyframes aisFlow{from{stroke-dashoffset:42}to{stroke-dashoffset:0}}
+</style>
 <style>
 :root{--bg-primary:#080e1a;--bg-secondary:#0d1828;--bg-tertiary:#121f32;--card-bg:#0d1828;--text-primary:#dce8f5;--text-muted:#5c7898;--border-color:#1a2f46;--header-bg:#060c18;--header-text:#6a8cb2}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -339,6 +343,117 @@ const INCOTERMS_LIST = ["EXW","FOB","CIF","CFR","DDP","DAP","FCA","CPT","CIP"];
 // ═══════════════════════════════════════════════
 // VESSEL TRACKING MAP
 // ═══════════════════════════════════════════════
+// SEA LANE ROUTING — waypoints for major chokepoints
+const WP={
+  HORMUZ:   [26.6,56.6],   // Strait of Hormuz
+  GULF_OUT: [23.5,59.5],   // Exit Gulf of Oman
+  BAB:      [12.6,43.5],   // Bab el-Mandeb
+  RED_S:    [15.5,41.5],   // South Red Sea
+  RED_N:    [27.0,34.0],   // North Red Sea
+  SUEZ_S:   [29.9,32.6],   // Suez Canal south
+  SUEZ_N:   [31.3,32.3],   // Port Said
+  MED_E:    [33.5,28.0],   // E. Mediterranean
+  MED_C:    [37.0,13.5],   // C. Mediterranean
+  MED_W:    [38.5,2.0],    // W. Mediterranean
+  GIBR:     [35.9,-5.6],   // Gibraltar
+  ATL:      [47.0,-9.0],   // N. Atlantic approach
+  INDIA_SW: [7.0,74.0],    // SW tip of India
+  INDIA_SE: [7.5,80.5],    // SE tip of India
+  MALACCA:  [4.5,100.5],   // Malacca Strait
+  SOF:      [11.8,51.3],   // Cape Guardafui / Horn of Africa
+  CAPE:     [-34.4,18.5],  // Cape of Good Hope
+  AGULHAS:  [-40.0,20.0],  // South of Africa
+};
+
+function _region(c){
+  const [la,lo]=c;
+  if(lo>48&&lo<62&&la>21&&la<31) return 'gulf';
+  if(lo>32&&lo<48&&la>12&&la<32) return 'redsea';
+  if(lo>60&&lo<82&&la>5&&la<28) return 'india_w';
+  if(lo>78&&lo<92&&la>5&&la<23) return 'india_e';
+  if(lo>85&&lo<106&&la>-5&&la<25) return 'sea';
+  if(lo>106&&lo<130&&la>5&&la<38) return 'china';
+  if(lo>125&&la>30&&la<45) return 'japan';
+  if(lo>-15&&lo<37&&la>28&&la<50) return 'med';
+  if(lo>-15&&lo<30&&la>48&&la<66) return 'n_europe';
+  if(lo>-12&&lo<5&&la>28&&la<48) return 's_europe_w';
+  if(lo>30&&lo<50&&la>35&&la<47) return 'black_sea';
+  if(lo>100&&lo<150&&la>-40&&la<-10) return 'australia';
+  if(lo>-85&&lo<-60&&la>-55&&la<15) return 's_america';
+  if(lo>-130&&lo<-60&&la>15&&la<55) return 'n_america';
+  if(lo>-20&&lo<50&&la>-35&&la<15) return 'africa_w';
+  if(lo>30&&lo<55&&la>-35&&la<5) return 'africa_e';
+  return 'other';
+}
+
+// Route waypoints between region pairs (both directions handled via symmetry)
+const ROUTE_TABLE={
+  'gulf:india_w':   [WP.HORMUZ,WP.GULF_OUT],
+  'gulf:india_e':   [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW],
+  'gulf:sea':       [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
+  'gulf:china':     [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
+  'gulf:japan':     [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
+  'gulf:australia': [WP.HORMUZ,WP.GULF_OUT,WP.INDIA_SW,WP.MALACCA],
+  'gulf:redsea':    [WP.HORMUZ,WP.SOF,WP.BAB],
+  'gulf:med':       [WP.HORMUZ,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'gulf:n_europe':  [WP.HORMUZ,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  'gulf:s_europe_w':[WP.HORMUZ,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W],
+  'gulf:africa_w':  [WP.HORMUZ,WP.SOF,WP.BAB,WP.CAPE,WP.AGULHAS],
+  'gulf:n_america': [WP.HORMUZ,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_C,WP.GIBR,WP.ATL],
+  'india_w:redsea': [WP.INDIA_SW,WP.SOF,WP.BAB],
+  'india_w:med':    [WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'india_w:n_europe':[WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  'india_w:s_europe_w':[WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W],
+  'india_e:sea':    [WP.INDIA_SE],
+  'india_e:china':  [WP.INDIA_SE,WP.MALACCA],
+  'india_e:med':    [WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'india_e:n_europe':[WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  'sea:med':        [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'sea:n_europe':   [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  'sea:gulf':       [WP.MALACCA,WP.INDIA_SW,WP.GULF_OUT,WP.HORMUZ],
+  'china:med':      [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'china:n_europe': [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  'china:gulf':     [WP.MALACCA,WP.INDIA_SW,WP.GULF_OUT,WP.HORMUZ],
+  'japan:med':      [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
+  'japan:n_europe': [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  'redsea:med':     [WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E],
+  'redsea:n_europe':[WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
+  'med:n_europe':   [WP.MED_W,WP.GIBR,WP.ATL],
+  'africa_e:med':   [WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E],
+  'africa_e:n_europe':[WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_N,WP.MED_C,WP.MED_W,WP.GIBR],
+};
+
+function getSeaWaypoints(from,to){
+  const rf=_region(from), rt=_region(to);
+  if(rf===rt) return [];
+  const key1=`${rf}:${rt}`, key2=`${rt}:${rf}`;
+  if(ROUTE_TABLE[key1]) return ROUTE_TABLE[key1];
+  if(ROUTE_TABLE[key2]) return [...ROUTE_TABLE[key2]].reverse();
+  return [];
+}
+
+function catmullRom(pts,segs){
+  const res=[];
+  for(let i=0;i<pts.length-1;i++){
+    const p0=pts[Math.max(0,i-1)],p1=pts[i],p2=pts[i+1],p3=pts[Math.min(pts.length-1,i+2)];
+    for(let j=0;j<segs;j++){
+      const t=j/segs,t2=t*t,t3=t2*t;
+      res.push([
+        0.5*((2*p1[0])+(-p0[0]+p2[0])*t+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3),
+        0.5*((2*p1[1])+(-p0[1]+p2[1])*t+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3)
+      ]);
+    }
+  }
+  res.push(pts[pts.length-1]);
+  return res;
+}
+
+function buildRoute(from,to){
+  const wps=getSeaWaypoints(from,to);
+  const pts=[from,...wps,to];
+  return catmullRom(pts, Math.max(6, Math.round(12/Math.max(1,pts.length-1))));
+}
+
 const PORT_COORDS={
   // Bahrain
   'khalifa bin salman':[26.10,50.62],'mina salman':[26.20,50.60],'bahrain':[26.23,50.58],
@@ -426,15 +541,92 @@ const PORT_COORDS={
   'schiphol':[52.31,4.77],'amsterdam':[52.31,4.77],
   'heathrow':[51.47,-0.46],
   'istanbul airport':[41.27,28.74],
+  // Additional ports
+  'king abdullah':[22.44,39.12],
+  'duqm':[19.67,57.71],'mormugao':[15.41,73.80],'ennore':[13.23,80.32],
+  'paradip':[20.26,86.68],'hazira':[21.10,72.65],
+  'male port':[4.18,73.51],'male':[4.18,73.51],
+  'yangon':[16.76,96.17],'thilawa':[16.69,96.27],
+  'da nang':[16.06,108.22],'cai mep':[10.56,107.01],
+  'belawan':[3.78,98.68],'makassar':[5.14,119.41],'batam':[1.14,104.03],
+  'cebu':[10.31,123.93],'subic bay':[14.79,120.27],
+  'sihanoukville':[10.63,103.52],
+  'kaohsiung':[22.62,120.28],'keelung':[25.13,121.74],'taichung':[24.28,120.52],
+  'gwangyang':[34.93,127.72],'ulsan':[35.50,129.39],
+  'hakata':[33.59,130.41],'shimizu':[35.01,138.50],
+  'narita':[35.77,140.39],
+  'kansai':[34.43,135.24],
+  'melbourne':[37.82,144.93],'sydney':[33.86,151.21],'brisbane':[-27.47,153.04],
+  'fremantle':[-32.05,115.74],'adelaide':[-34.85,138.59],'botany':[-33.97,151.21],
+  'auckland':[-36.84,174.76],'tauranga':[-37.68,176.17],'lyttelton':[-43.60,172.73],
+  'durban':[-29.87,31.03],'cape town':[-33.91,18.42],'port elizabeth':[-33.97,25.63],
+  'richards bay':[-28.78,32.08],'mombasa':[-4.06,39.66],'lamu':[-2.27,40.90],
+  'dar es salaam':[-6.81,39.29],'zanzibar':[-6.16,39.19],
+  'maputo':[-25.97,32.58],'beira':[-19.82,34.84],'nacala':[-14.54,40.68],
+  'luanda':[-8.82,13.23],'lobito':[-12.35,13.56],
+  'tema':[5.63,0.02],'takoradi':[4.89,-1.73],
+  'abidjan':[5.31,-4.01],'san pedro':[4.74,-6.63],
+  'dakar':[14.69,-17.44],
+  'apapa':[6.45,3.39],'tin can':[6.43,3.33],'onne':[4.72,7.15],
+  'casablanca':[33.60,-7.62],'tanger med':[35.88,-5.52],'agadir':[30.42,-9.61],
+  'algiers':[36.74,3.04],'oran':[35.69,-0.63],
+  'tunis':[36.82,10.22],'sfax':[34.73,10.76],'rades':[36.77,10.28],
+  'tripoli':[32.90,13.19],'benghazi':[32.12,20.07],'misrata':[32.37,15.09],
+  'haifa':[32.82,35.00],'ashdod':[31.80,34.65],
+  'thessaloniki':[40.63,22.94],'varna':[43.20,27.92],'burgas':[42.49,27.47],
+  'constanta':[44.17,28.67],'odessa':[46.48,30.73],'chornomorsk':[46.30,30.67],
+  'st. petersburg':[59.92,30.27],'novorossiysk':[44.72,37.80],'vladivostok':[43.12,131.88],
+  'aktau':[43.65,51.20],'baku':[40.36,49.84],'batumi':[41.65,41.63],'poti':[42.16,41.67],
+  'gdansk':[54.37,18.66],'gdynia':[54.53,18.54],'szczecin':[53.43,14.55],
+  'santos':[-23.96,-46.32],'itaguai':[-22.93,-43.78],'paranagua':[-25.53,-48.53],
+  'itajai':[-26.91,-48.66],'suape':[-8.38,-35.00],
+  'buenos aires':[-34.60,-58.37],'rosario':[-32.95,-60.63],
+  'san antonio':[-33.60,-71.62],'valparaiso':[-33.03,-71.63],'iquique':[-20.22,-70.15],
+  'callao':[-12.05,-77.15],
+  'cartagena':[10.39,-75.53],'buenaventura':[3.88,-77.08],
+  'balboa':[8.96,-79.57],'colon':[9.36,-79.90],'panama canal':[9.08,-79.69],
+  'manzanillo':[19.06,-104.31],'lazaro cardenas':[17.92,-102.17],
+  'veracruz':[19.21,-96.13],'altamira':[22.40,-97.91],
+  'los angeles':[33.74,-118.27],'long beach':[33.75,-118.22],
+  'new york':[40.66,-74.05],'new jersey':[40.66,-74.15],
+  'houston':[29.72,-95.09],'miami':[25.78,-80.17],'savannah':[31.99,-81.11],
+  'charleston':[32.78,-79.94],'norfolk':[36.98,-76.33],
+  'seattle':[47.60,-122.34],'tacoma':[47.27,-122.41],'vancouver':[49.29,-123.10],
+  'montreal':[45.57,-73.55],'halifax':[44.65,-63.57],
+  'kingston':[17.97,-76.79],'port of spain':[10.64,-61.52],
+  'mogadishu':[2.03,45.34],'berbera':[10.44,45.02],
+  'massawa':[15.61,39.47],'assab':[13.00,42.73],
+  'djibouti':[11.60,43.15],'doraleh':[11.60,43.09],
+  'sokhna':[29.60,32.33],'east port said':[31.26,32.37],
+  'east port said port':[31.26,32.37],'king abdullah port':[22.44,39.12],
+  'shahid rajaee':[27.09,56.06],'khor al-zubair':[30.35,47.97],
+  'duqm port':[19.67,57.71],'gemport':[37.01,35.60],
+  'haydarpasa':[40.99,29.03],'tripoli port':[33.90,35.65],
+  'larnaca':[34.92,33.63],
+  'sines':[37.95,-8.87],'leixoes':[41.18,-8.70],
+  'lisbon':[38.72,-9.18],'bilbao':[43.36,-3.03],'vigo':[42.24,-8.73],
+  'dunkirk':[51.03,2.37],'gdansk port':[54.37,18.66],
+  'gothenburg':[57.70,11.96],'stockholm':[59.33,18.05],
+  'oslo':[59.91,10.75],'bergen':[60.39,5.33],
+  'helsinki':[60.17,24.97],'turku':[60.44,22.23],
+  'aarhus':[56.15,10.22],'copenhagen':[55.68,12.60],
+  'southampton port':[50.90,-1.40],'liverpool':[53.40,-3.02],'bristol':[51.45,-2.59],
+  'port of london':[51.51,0.09],
+  'manchester airport':[53.36,-2.27],
+  'narita airport':[35.77,140.39],'heathrow airport':[51.47,-0.46],
+  'charles de gaulle':[49.01,2.55],'paris':[49.01,2.55],
+  'malpensa':[45.63,8.72],'milan':[45.63,8.72],
+  'brisbane airport':[-27.39,153.12],'perth airport':[-31.94,115.97],
+  'bole':[8.98,38.80],'addis ababa':[8.98,38.80],
+  'kempegowda':[13.20,77.71],'bangalore':[13.20,77.71],
+  'baiyun':[23.39,113.30],'guangzhou airport':[23.39,113.30],
+  'baoan':[22.64,113.81],'shenzhen airport':[22.64,113.81],
+  'brussels':[50.90,4.48],'schiphol airport':[52.31,4.77],
+  'copenhagen airport':[55.62,12.66],
+  'o\'hare':[41.98,-87.91],'chicago':[41.98,-87.91],
+  'jfk':[40.64,-73.78],'lax':[33.94,-118.41],
+  'pearson':[43.68,-79.63],'toronto':[43.68,-79.63],
 };
-function getPortCoords(name){
-  if(!name) return null;
-  const k=name.toLowerCase().trim();
-  if(PORT_COORDS[k]) return PORT_COORDS[k];
-  for(const p of Object.keys(PORT_COORDS))
-    if(k.includes(p)||p.includes(k)) return PORT_COORDS[p];
-  return null;
-}
 function activeVessel(sh){
   return (sh.rerouted==='Yes'&&sh.reroutedVessel)?sh.reroutedVessel:sh.vesselName;
 }
@@ -444,57 +636,73 @@ function _isArrived(sh){return ARRIVED_STATUSES.some(x=>sh.status.toLowerCase().
 function _isHidden(sh){return HIDE_STATUSES.some(x=>sh.status.toLowerCase().includes(x));}
 
 function renderShipmentsMap(shipments){
-  const visible=shipments.filter(s=>!_isHidden(s)&&s.originPort&&s.destPort);
+  const visible=shipments.filter(s=>!_isHidden(s)&&(s.originPort||s.originCity)&&(s.destPort||s.destCity));
   const wrap=document.getElementById('shipmentsMapWrap');
   if(!wrap) return;
-  console.log('[Map] Total shipments:',shipments.length,'| Visible (non-hidden, has ports):',visible.length);
-  visible.forEach(s=>{
-    const from=getPortCoords(s.originPort), to=getPortCoords(s.destPort);
-    console.log(`[Map] ${s.supplier||s.item} | origin:"${s.originPort}" (${from?'OK':'NOT FOUND'}) | dest:"${s.destPort}" (${to?'OK':'NOT FOUND'}) | status:"${s.status}" | vessel:"${s.vesselName}"`);
-  });
   if(!visible.length){wrap.style.display='none';return;}
   wrap.style.display='';
   if(window._trackingMap){window._trackingMap.remove();window._trackingMap=null;}
-  const map=L.map('shipmentsMap',{zoomControl:true});
+
+  const map=L.map('shipmentsMap',{zoomControl:true,preferCanvas:false});
   window._trackingMap=map;
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CartoDB',maxZoom:19,subdomains:'abcd'
+  }).addTo(map);
+
   const bounds=[];
   for(const sh of visible){
-    const from=getPortCoords(sh.originPort);
-    const to=getPortCoords(sh.destPort);
+    const from=getPortCoords(sh.originPort)||getPortCoords(sh.originCity);
+    const to=getPortCoords(sh.destPort)||getPortCoords(sh.destCity);
     if(!from||!to) continue;
+
     const isRerouted=sh.rerouted==='Yes';
     const isArrived=_isArrived(sh);
-    const colour=isRerouted?'#dd6b20':sh.status.toLowerCase().includes('delay')?'#e53e3e':sh.status.toLowerCase().includes('custom')?'#ed8936':sh.status.toLowerCase().includes('transit')?'#3182ce':'#38a169';
-    const mid=[(from[0]+to[0])/2+(to[1]-from[1])*0.15,(from[1]+to[1])/2-(to[0]-from[0])*0.15];
-    const arc=[];
-    for(let i=0;i<=24;i++){const t=i/24;arc.push([(1-t)*(1-t)*from[0]+2*(1-t)*t*mid[0]+t*t*to[0],(1-t)*(1-t)*from[1]+2*(1-t)*t*mid[1]+t*t*to[1]]);}
-    L.polyline(arc,{color:colour,weight:2,opacity:0.55,dashArray:'6,4'}).addTo(map);
+    const st=sh.status.toLowerCase();
+    const colour=isRerouted?'#f97316':st.includes('delay')||st.includes('block')?'#ef4444':st.includes('custom')?'#f59e0b':st.includes('arrived')||st.includes('cleared')?'#22c55e':'#3b82f6';
+
+    const route=buildRoute(from,to);
+
+    // Shadow/glow line (thicker, lower opacity)
+    L.polyline(route,{color:colour,weight:5,opacity:0.18,smoothFactor:1}).addTo(map);
+    // Main animated line
+    const line=L.polyline(route,{color:colour,weight:2.5,opacity:0.85,dashArray:'14 7',smoothFactor:1}).addTo(map);
+    // Animate dashes flowing along route
+    const el=line.getElement();
+    if(el){el.style.animation='aisFlow 1.8s linear infinite';el.style.strokeDashoffset='0';}
+
+    // Port dots
+    L.circleMarker(from,{radius:5,color:colour,fillColor:colour,fillOpacity:0.9,weight:2}).addTo(map);
+    L.circleMarker(to,{radius:isArrived?7:5,color:isArrived?'#22c55e':colour,fillColor:isArrived?'#22c55e':colour,fillOpacity:0.9,weight:2}).addTo(map);
+
     let pos,prog;
     if(isArrived){pos=to;prog=100;}
     else{
       const etd=sh.etd?new Date(sh.etd):null;const eta=sh.eta?new Date(sh.eta):null;prog=50;
       if(etd&&eta&&eta>etd) prog=Math.round(Math.max(0,Math.min(1,(new Date()-etd)/(eta-etd)))*100);
-      pos=arc[Math.round(prog/100*24)];
+      pos=route[Math.round(prog/100*(route.length-1))];
     }
-    const iconHtml=isArrived?'<div style="font-size:20px;transform:translate(-50%,-50%)">⚓</div>':'<div style="font-size:22px;transform:translate(-50%,-50%)">🚢</div>';
+
+    const iconHtml=isArrived
+      ?`<div style="font-size:18px;filter:drop-shadow(0 0 4px #22c55e);transform:translate(-50%,-50%)">⚓</div>`
+      :`<div style="font-size:20px;filter:drop-shadow(0 0 6px ${colour});transform:translate(-50%,-50%)">🚢</div>`;
     const icon=L.divIcon({html:iconHtml,className:'',iconSize:[28,28],iconAnchor:[14,14]});
     const marker=L.marker(pos,{icon}).addTo(map);
     marker.on('click',()=>openVesselPanel(sh,prog));
+
     const vessel=activeVessel(sh);
-    const tipHtml=`<div style="font-size:12px;line-height:1.7;min-width:200px">
-      <b style="font-size:13px">${sh.supplier||sh.item||'Shipment'}</b><br>
-      <span style="color:#aaa">${sh.originPort} → ${sh.destPort}</span><br>
-      ${vessel?`<span>🚢 ${vessel}</span><br>`:''}
-      ${sh.blAwb?`<span style="color:#aaa">BL: ${sh.blAwb}</span><br>`:''}
-      <span>ETD: ${sh.etd||'—'} &nbsp;|&nbsp; ETA: ${sh.eta||'—'}</span><br>
-      <span>${isArrived?'✅ Arrived at destination':isRerouted?`🔀 Rerouted · ${prog}% complete`:`🔄 In Transit · ${prog}% complete`}</span>
-      ${sh.delayReason?`<br><span style="color:#f87171">⚠️ ${sh.delayReason}</span>`:''}
+    const tipHtml=`<div style="font-size:12px;line-height:1.8;min-width:220px">
+      <b style="font-size:13px;color:#fff">${esc(sh.supplier||sh.item||'Shipment')}</b><br>
+      <span style="color:#94a3b8">${esc(sh.originPort||sh.originCity||'?')} → ${esc(sh.destPort||sh.destCity||'?')}</span><br>
+      ${vessel?`<span style="color:#93c5fd">🚢 ${esc(vessel)}</span><br>`:''}
+      ${sh.blAwb?`<span style="color:#94a3b8">BL/AWB: ${esc(sh.blAwb)}</span><br>`:''}
+      <span>ETD: <b>${sh.etd||'—'}</b> &nbsp;|&nbsp; ETA: <b>${sh.eta||'—'}</b></span><br>
+      <span style="color:${colour}">${isArrived?'✅ Arrived at destination':isRerouted?`🔀 Rerouted · ${prog}%`:`🔄 ${prog}% complete`}</span>
+      ${sh.delayReason?`<br><span style="color:#f87171">⚠️ ${esc(sh.delayReason)}</span>`:''}
     </div>`;
-    marker.bindTooltip(tipHtml,{direction:'top',opacity:0.95,className:'ship-tooltip'});
+    marker.bindTooltip(tipHtml,{direction:'top',opacity:0.98,className:'ship-tooltip'});
     bounds.push(from,to);
   }
-  if(bounds.length) map.fitBounds(bounds,{padding:[30,30]});
+  if(bounds.length) map.fitBounds(bounds,{padding:[40,40]});
 }
 
 function openVesselPanel(sh,pct){
@@ -617,6 +825,7 @@ function parseExcel(arrayBuffer){
       direction:r['Direction']||'Import', poRef:r['PO Reference']||'', supplier:r['Supplier / Consignee']||'',
       country:r['Country']||'', item:r['Item Description']||'', incoterms:r['Incoterms']||'',
       originPort:r['Origin Port / City']||'', destPort:r['Destination Port / City']||'',
+      countryOfDest:r['Country of Destination']||'',
       mode:r['Shipment Mode']||'', carrier:r['Carrier / Shipping Line']||'', blAwb:r['BL / AWB Number']||'', vesselName:r['Vessel Name']||'', reroutedVessel:r['Rerouted Vessel']||'',
       cnt20:num(r['No. of 20ft Containers']),cnt40:num(r['No. of 40ft Containers']),
       cnt40hc:num(r['No. of 40ft HC Containers']),lclCbm:num(r['LCL CBM']),
