@@ -645,8 +645,9 @@ function renderShipmentsMap(shipments){
 
   const map=L.map('shipmentsMap',{zoomControl:true,preferCanvas:false});
   window._trackingMap=map;
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-    attribution:'© OpenStreetMap © CartoDB',maxZoom:19,subdomains:'abcd'
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',{
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+    maxZoom:19,subdomains:'abcd'
   }).addTo(map);
 
   const bounds=[];
@@ -666,9 +667,8 @@ function renderShipmentsMap(shipments){
     L.polyline(route,{color:colour,weight:5,opacity:0.18,smoothFactor:1}).addTo(map);
     // Main animated line
     const line=L.polyline(route,{color:colour,weight:2.5,opacity:0.85,dashArray:'14 7',smoothFactor:1}).addTo(map);
-    // Animate dashes flowing along route
-    const el=line.getElement();
-    if(el){el.style.animation='aisFlow 1.8s linear infinite';el.style.strokeDashoffset='0';}
+    // Animate dashes flowing along route (deferred so SVG is in DOM)
+    setTimeout(()=>{const el=line.getElement();if(el){el.style.animation='aisFlow 1.8s linear infinite';}},50);
 
     // Port dots
     L.circleMarker(from,{radius:5,color:colour,fillColor:colour,fillOpacity:0.9,weight:2}).addTo(map);
