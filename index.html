@@ -627,6 +627,14 @@ const PORT_COORDS={
   'jfk':[40.64,-73.78],'lax':[33.94,-118.41],
   'pearson':[43.68,-79.63],'toronto':[43.68,-79.63],
 };
+function getPortCoords(name){
+  if(!name) return null;
+  const k=name.toLowerCase().trim();
+  if(PORT_COORDS[k]) return PORT_COORDS[k];
+  for(const p of Object.keys(PORT_COORDS))
+    if(k.includes(p)||p.includes(k)) return PORT_COORDS[p];
+  return null;
+}
 function activeVessel(sh){
   return (sh.rerouted==='Yes'&&sh.reroutedVessel)?sh.reroutedVessel:sh.vesselName;
 }
