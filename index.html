@@ -1989,7 +1989,7 @@ function renderLocal(data,sh,isCon){
   const cols=[
     {key:'prNumber',label:'PR #',type:'string'},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
-    ...(lvlL>=3?[{key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)}]:[]),
+    ...(lvlL>=3?[{key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)+_docBtn('costing',v)}]:[]),
     {key:'projectName',label:'Project',type:'string'},
     {key:'item',label:'Item',type:'string'},
     ...(lvlL>=2?[{key:'requestedBy',label:'Requested By',type:'string'}]:[]),
@@ -2000,7 +2000,7 @@ function renderLocal(data,sh,isCon){
     {key:'stage',label:'Stage',type:'string',render:v=>stageBadge(v)},
     ...(lvlL>=3?[{key:'buyer',label:'Buyer',type:'string'}]:[]),
     ...(lvlL>=3?[{key:'supplier',label:'Supplier',type:'string'}]:[]),
-    ...(lvlL>=3?[{key:'poNumber',label:'PO #',type:'string',render:v=>v?`<span style="color:#6ea8e8;cursor:pointer;text-decoration:underline;font-weight:600" onclick="showDeliveriesModal('${escAttr(v)}')">${esc(v)}</span>`:''}]:[]),
+    ...(lvlL>=3?[{key:'poNumber',label:'PO #',type:'string',render:v=>v?`<span style="color:#6ea8e8;cursor:pointer;text-decoration:underline;font-weight:600" onclick="showDeliveriesModal('${escAttr(v)}')">${esc(v)}</span>`+_docBtn('po',v):''}]:[]),
     ...(lvlL>=3?[{key:'poValue',label:'PO Value (BHD)',type:'number',render:v=>v?fmtNum(v):''}]:[]),
     ...(lvlL>=3?[{key:'paymentTerms',label:'Payment Terms',type:'string'}]:[]),
     {key:'expectedDelivery',label:'Exp. Delivery',type:'string'},
@@ -2061,7 +2061,7 @@ function renderIntl(data,sh,isCon){
   const cols=[
     {key:'prNumber',label:'PR #',type:'string'},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
-    ...(lvlI>=3?[{key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)}]:[]),
+    ...(lvlI>=3?[{key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)+_docBtn('costing',v)}]:[]),
     {key:'projectName',label:'Project',type:'string'},
     {key:'item',label:'Item',type:'string'},
     ...(lvlI>=3?[{key:'supplier',label:'Supplier',type:'string'}]:[]),
@@ -2081,7 +2081,7 @@ function renderIntl(data,sh,isCon){
       if(!v) return '';
       const has=DATA.shipments.some(s=>s.poRef&&s.poRef.trim()===v.trim());
       const btnC=has?'background:#0d9e8022;border:1px solid #0d9e8066;color:#0d9e80':'background:#1a2f4622;border:1px solid #2a3f5666;color:#4a6a8a';
-      return esc(v)+` <button onclick="showIPLinkedShipment('${escAttr(v)}')" style="${btnC};border-radius:6px;padding:2px 6px;cursor:pointer;font-size:10px;white-space:nowrap;margin-left:4px">${has?'🚢 Linked':'🚢 Check'}</button>`;
+      return esc(v)+` <button onclick="showIPLinkedShipment('${escAttr(v)}')" style="${btnC};border-radius:6px;padding:2px 6px;cursor:pointer;font-size:10px;white-space:nowrap;margin-left:4px">${has?'🚢 Linked':'🚢 Check'}</button>`+_docBtn('po',v);
     }}]:[]),
   ];
   h+=dataTable(tabId,cols,data);
@@ -2163,14 +2163,14 @@ function renderShipments(shAll,shipF,isCon){
     }},
     {key:'direction',label:'Dir',type:'string',render:v=>dirBadge(v)},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
-    ...(lvlS>=3?[{key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)}]:[]),
+    ...(lvlS>=3?[{key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)+_docBtn('costing',v)}]:[]),
     {key:'item',label:'Item',type:'string'},
     ...(lvlS>=3?[{key:'supplier',label:'Supplier',type:'string'}]:[]),
     ...(lvlS>=3?[{key:'country',label:'Country',type:'string'}]:[]),
     ...(lvlS>=3?[{key:'incoterms',label:'Incoterms',type:'string',render:v=>incoBadge(v)}]:[]),
     {key:'mode',label:'Mode',type:'string'},
     ...(lvlS>=4?[{key:'cnt20',label:'Containers',type:'string',render:(_,r)=>containerStr(r)}]:[]),
-    ...(lvlS>=3?[{key:'blAwb',label:'BL/AWB #',type:'string',render:v=>v?`<span style="color:#6ea8e8;cursor:pointer;text-decoration:underline;font-weight:600" onclick="showShipmentItemsModal('${escAttr(v)}')">${esc(v)}</span>`:''}]:[]),
+    ...(lvlS>=3?[{key:'blAwb',label:'BL/AWB #',type:'string',render:v=>v?`<span style="color:#6ea8e8;cursor:pointer;text-decoration:underline;font-weight:600" onclick="showShipmentItemsModal('${escAttr(v)}')">${esc(v)}</span>`+_docBtn('bl-awb',v):''}]:[]),
     ...(lvlS>=3?[{key:'originPort',label:'Origin Port',type:'string'}]:[]),
     ...(lvlS>=3?[{key:'destPort',label:'Dest Port',type:'string'}]:[]),
     ...(lvlS>=3?[{key:'carrier',label:'Carrier',type:'string',render:(v,r)=>v?`<span style="color:#6ea8e8;cursor:pointer;text-decoration:underline" onclick="openCarrierTracking('${escAttr(v)}','${escAttr(r.blAwb||'')}','${escAttr(r.mode||'')}')">${esc(v)}</span>`:'' }]:[]),
@@ -2234,7 +2234,7 @@ function renderDeliveries(data,sh,isCon){
   }
   const cols=[
     {key:'lpoRef',label:'LPO Ref',type:'string'},
-    {key:'deliveryNum',label:'Delivery #',type:'string'},
+    {key:'deliveryNum',label:'Delivery #',type:'string',render:v=>v?esc(v)+_docBtn('delivery',v):''},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
     {key:'deliveryDate',label:'Delivery Date',type:'string'},
     {key:'items',label:'Items',type:'string'},
@@ -2296,7 +2296,7 @@ function renderEscalations(data,sh,isCon){
   const cols=[
     {key:'reference',label:'Ref',type:'string'},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
-    {key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)},
+    {key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)+_docBtn('costing',v)},
     {key:'projectName',label:'Project',type:'string'},
     {key:'type',label:'Type',type:'string'},
     {key:'description',label:'Issue',type:'string'},
@@ -2767,6 +2767,101 @@ function openCarrierTracking(carrier,blAwb,mode){
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend',html);
+}
+
+// ── Document modal ────────────────────────────────────────────────────────
+
+async function openDocsModal(docType,reference){
+  const labels={po:'Purchase Order','bl-awb':'BL / AWB',delivery:'Delivery',costing:'Costing Sheet'};
+  const typeLabel=labels[docType]||docType;
+  const modalId='docsModal';
+  document.getElementById(modalId)?.remove();
+  const modal=document.createElement('div');
+  modal.id=modalId;
+  modal.className='modal-overlay';
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  modal.innerHTML=`
+    <div class="modal-card wide" style="max-width:680px;width:95vw">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div>
+          <div class="modal-title" style="margin-bottom:2px">📎 ${esc(typeLabel)} Documents</div>
+          <div style="font-size:12px;color:var(--text-muted)">Ref: <b>${esc(reference)}</b></div>
+        </div>
+        <button onclick="document.getElementById('docsModal').remove()" style="background:none;border:none;color:#5c7898;font-size:18px;cursor:pointer">✕</button>
+      </div>
+      <div id="docsFileList" style="min-height:60px;margin-bottom:16px"><div style="color:var(--text-muted);font-size:13px">Loading…</div></div>
+      <div style="border-top:1px solid var(--border-color);padding-top:14px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Upload New Document</div>
+        <div id="docsDropZone" style="border:2px dashed var(--border-color);border-radius:10px;padding:20px;text-align:center;cursor:pointer"
+          ondragover="event.preventDefault();this.style.borderColor='#2d6fd4'"
+          ondragleave="this.style.borderColor=''"
+          ondrop="_handleDocDrop(event,'${docType}','${escAttr(reference)}')">
+          <div style="font-size:13px;color:var(--text-muted)">Drag & drop file here, or</div>
+          <button onclick="document.getElementById('docsFileInput').click()" style="margin-top:8px;background:#2d6fd4;color:#fff;border:none;border-radius:8px;padding:7px 18px;cursor:pointer;font-size:13px;font-weight:600">Choose File</button>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">PDF, Excel, Word, JPG, PNG — max 10 MB</div>
+        </div>
+        <input type="file" id="docsFileInput" accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png" style="display:none"
+          onchange="_handleDocFileInput(event,'${docType}','${escAttr(reference)}')">
+        <div id="docsUploadStatus" style="margin-top:10px;font-size:13px;display:none"></div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  await _refreshDocsList(docType,reference);
+}
+
+async function _refreshDocsList(docType,reference){
+  const el=document.getElementById('docsFileList');
+  if(!el)return;
+  try{
+    const r=await api(`/documents/${docType}/${encodeURIComponent(reference)}`);
+    const files=r.files||[];
+    if(!files.length){el.innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:8px 0">No documents attached yet.</div>';return;}
+    el.innerHTML=files.map(f=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg-tertiary);border-radius:8px;margin-bottom:6px">
+        <span style="font-size:20px">${_docIcon(f.name)}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(f.name)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${_fmtBytes(f.size)} · ${(f.uploaded||'').slice(0,10)}</div>
+        </div>
+        <a href="${esc(f.url)}" target="_blank" style="background:#2d6fd422;border:1px solid #2d6fd466;color:#6ea8e8;border-radius:6px;padding:4px 10px;text-decoration:none;font-size:12px;white-space:nowrap">⬇ View</a>
+        ${userLevel()>=2?`<button onclick="_deleteDoc('${docType}','${escAttr(reference)}','${escAttr(f.item_id)}','${escAttr(f.name)}')" style="background:#b8323222;border:1px solid #b8323266;color:#f08080;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px">🗑</button>`:''}
+      </div>`).join('');
+  }catch(e){el.innerHTML=`<div style="color:#f08080;font-size:13px">Could not load: ${esc(e.message)}</div>`;}
+}
+
+function _docIcon(n){const e=n.split('.').pop().toLowerCase();return e==='pdf'?'📄':['xlsx','xls'].includes(e)?'📊':['doc','docx'].includes(e)?'📝':['jpg','jpeg','png'].includes(e)?'🖼️':'📎';}
+function _fmtBytes(b){if(!b)return'';if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';return(b/1048576).toFixed(1)+' MB';}
+
+async function _uploadDoc(docType,reference,file){
+  const st=document.getElementById('docsUploadStatus');
+  if(!st)return;
+  st.style.display='';st.style.color='#6ea8e8';st.textContent=`⏳ Uploading ${file.name}…`;
+  try{
+    const fd=new FormData();
+    fd.append('doc_type',docType);fd.append('reference',reference);fd.append('file',file);
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),60000);
+    const res=await fetch(BACKEND_URL+'/documents/upload',{method:'POST',headers:{Authorization:'Bearer '+authToken},body:fd,signal:ctrl.signal});
+    clearTimeout(tid);
+    if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.detail||'Upload failed');}
+    st.style.color='#0d9e80';st.textContent=`✅ ${file.name} uploaded`;
+    await _refreshDocsList(docType,reference);
+    setTimeout(()=>{if(st)st.style.display='none';},3000);
+  }catch(e){st.style.color='#f08080';st.textContent=`❌ ${e.message}`;}
+}
+
+function _handleDocFileInput(event,docType,reference){const f=event.target.files[0];if(f)_uploadDoc(docType,reference,f);event.target.value='';}
+function _handleDocDrop(event,docType,reference){event.preventDefault();document.getElementById('docsDropZone').style.borderColor='';const f=event.dataTransfer.files[0];if(f)_uploadDoc(docType,reference,f);}
+
+async function _deleteDoc(docType,reference,itemId,name){
+  if(!confirm(`Delete "${name}"?`))return;
+  try{await api(`/documents/${docType}/${encodeURIComponent(reference)}/${encodeURIComponent(itemId)}`,'DELETE');await _refreshDocsList(docType,reference);}
+  catch(e){alert('Delete failed: '+e.message);}
+}
+
+function _docBtn(docType,ref){
+  if(!ref)return'';
+  return` <button onclick="openDocsModal('${docType}','${escAttr(ref)}')" style="background:#1a2f4622;border:1px solid #2a3f5666;color:#4a8ab8;border-radius:6px;padding:1px 6px;cursor:pointer;font-size:10px;margin-left:3px;white-space:nowrap" title="Documents">📎</button>`;
 }
 
 function showIPLinkedShipment(poNumber){
