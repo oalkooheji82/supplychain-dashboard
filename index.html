@@ -12,6 +12,9 @@
 .ship-tooltip{background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:10px 14px;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,0.7)}
 .ship-tooltip::before{display:none}
 @keyframes aisFlow{from{stroke-dashoffset:42}to{stroke-dashoffset:0}}
+.map-badge{width:34px;height:34px;border-radius:50%;background:rgba(8,14,26,0.92);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;border:2px solid;transition:transform 0.15s,box-shadow 0.15s}
+.map-badge:hover{transform:scale(1.2);box-shadow:0 0 16px currentColor}
+.map-stat-pill{display:flex;align-items:center;gap:6px;padding:3px 10px;border-radius:20px;font-size:12px}
 </style>
 <style>
 :root{--bg-primary:#080e1a;--bg-secondary:#0d1828;--bg-tertiary:#121f32;--card-bg:#0d1828;--text-primary:#dce8f5;--text-muted:#5c7898;--border-color:#1a2f46;--header-bg:#060c18;--header-text:#6a8cb2}
@@ -334,7 +337,7 @@ let _resendInterval = null;
 // ═══════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════
-const DIVISIONS = ["Consolidated View","Delmon Furniture Factory","Motor & Marine Division","Home Appliances Distribution","Home Appliances Service Center","Tire & Allied Business","AJK Unity","Pearl Craft","HVAC & Project Solutions","Education"];
+const DIVISIONS = ["Consolidated View","Delmon Furniture Factory","Motor & Marine Division","Home Appliances Distribution","Home Appliances Service Center","Tire & Allied Business","AJK Unity","Pearl Craft"];
 const PROJECT_DIVISIONS = ["Delmon Furniture Factory","AJK Unity","Pearl Craft"];
 const LOCAL_STAGES = ["PR Received","Sourcing / Quotation","Pending Approval","PO Issued","Supplier Confirmation","In Transit / Out for Delivery","Received at Warehouse","Closed / Completed","Cancelled"];
 const INTL_STAGES = ["PR Received","Sourcing / Quotation","Pending Approval","PO Issued","Supplier Confirmation / PI Received","Payment Processing","Production / Manufacturing","Ready for Shipment","Booking & Documentation","In Transit (Sea/Air)","Arrived at Port / Airport","Customs Clearance","Released & In Transit to Warehouse","Received at Warehouse","Closed / Completed"];
@@ -346,25 +349,32 @@ const INCOTERMS_LIST = ["EXW","FOB","CIF","CFR","DDP","DAP","FCA","CPT","CIP"];
 // SEA LANE ROUTING — waypoints for major chokepoints
 // ── Sea-lane waypoints ────────────────────────────────────────────────────────
 const WP={
-  HORMUZ:   [26.6,56.6],   // Strait of Hormuz
-  GULF_MID: [26.0,52.0],   // Centre of Persian Gulf (keeps intra-Gulf routes in water)
-  GULF_OUT: [23.0,59.0],   // Gulf of Oman open water
-  BAB:      [12.6,43.5],   // Bab el-Mandeb
-  RED_S:    [15.5,41.5],   // South Red Sea
-  RED_N:    [27.0,34.0],   // North Red Sea
-  SUEZ_S:   [29.9,32.6],   // Suez Canal south
-  SUEZ_N:   [31.3,32.3],   // Port Said / N. entrance
-  MED_E:    [33.0,27.0],   // E. Mediterranean (open water, south of Greece)
-  MED_C:    [36.5,14.0],   // C. Mediterranean (south of Sicily)
-  MED_W:    [38.0,2.5],    // W. Mediterranean (south of Spain)
-  GIBR:     [35.9,-5.6],   // Gibraltar
-  ATL:      [47.0,-9.0],   // N. Atlantic approach
-  INDIA_SW: [6.5,74.0],    // SW tip of India (clear of coast)
-  INDIA_SE: [6.5,81.0],    // SE tip of India / Sri Lanka
-  MALACCA:  [3.5,99.5],    // Malacca Strait (south, open water)
-  SOF:      [11.5,51.5],   // Cape Guardafui / Horn of Africa
-  CAPE:     [-34.8,17.5],  // Cape of Good Hope
-  AGULHAS:  [-40.0,20.0],  // South of Africa
+  HORMUZ:     [26.6,56.6],   // Strait of Hormuz
+  GULF_MID:   [27.0,52.5],   // N. Gulf open water — north of Qatar peninsula
+  GULF_OUT:   [23.0,59.0],   // Gulf of Oman open water
+  BAB:        [12.6,43.5],   // Bab el-Mandeb
+  RED_S:      [15.5,41.5],   // South Red Sea
+  RED_N:      [27.0,34.0],   // North Red Sea
+  SUEZ_S:     [29.9,32.6],   // Suez Canal south
+  SUEZ_N:     [31.3,32.3],   // Port Said / N. entrance
+  MED_E:      [33.0,27.0],   // E. Mediterranean (south of Greece)
+  MED_C:      [36.5,14.0],   // C. Mediterranean (south of Sicily)
+  MED_W:      [38.0,2.5],    // W. Mediterranean (south of Spain)
+  ALBORAN:    [35.6,0.8],    // Alboran Sea — between Gibraltar & Algeria, avoids coast clipping
+  GIBR:       [35.9,-5.6],   // Gibraltar
+  STVIN:      [37.0,-10.5],  // Cape St. Vincent (SW Portugal) — Atlantic, keeps routes off land
+  FINISTERRE: [43.5,-10.0],  // Cape Finisterre (NW Spain) — Atlantic coast waypoint
+  ATL:        [48.0,-15.0],  // N. Atlantic (well offshore, clear of Iberian Peninsula)
+  INDIA_SW:   [6.5,74.0],    // SW tip of India (clear of coast)
+  INDIA_SE:   [6.5,81.0],    // SE tip of India / Sri Lanka
+  MALACCA:    [3.5,99.5],    // Malacca Strait (south, open water)
+  SOF:        [11.5,51.5],    // Cape Guardafui / Horn of Africa
+  E_AFR:      [-10.0,50.0],  // E.Africa coast (Indian Ocean, off Tanzania/Mozambique)
+  MADA_S:     [-26.0,46.0],  // S.Mozambique Channel (between Madagascar & Mozambique)
+  CAPE:       [-34.8,17.5],  // Cape of Good Hope
+  AGULHAS:    [-40.0,20.0],  // South of Africa (open ocean south of Cape)
+  W_AFR_ATL:  [5.0,-2.0],   // Gulf of Guinea / W.Africa Atlantic (open water)
+  CANARIES:   [27.0,-15.5],  // Canary Islands latitude, open Atlantic
 };
 
 // ── Sea-lane region detection ─────────────────────────────────────────────────
@@ -423,11 +433,11 @@ const ROUTE_TABLE={
   'gulf:med':         [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
   'gulf:n_europe':    [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
   'gulf:s_europe_w':  [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W],
-  'gulf:africa_e':    [WP.HORMUZ,WP.GULF_OUT,WP.SOF],
-  'gulf:s_africa':    [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.CAPE],
-  'gulf:africa_w':    [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.CAPE,WP.AGULHAS],
+  'gulf:africa_e':    [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.E_AFR],
+  'gulf:s_africa':    [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.E_AFR,WP.MADA_S,WP.AGULHAS,WP.CAPE],
+  'gulf:africa_w':    [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.E_AFR,WP.MADA_S,WP.AGULHAS,WP.CAPE,WP.W_AFR_ATL],
   'gulf:n_america':   [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_C,WP.GIBR,WP.ATL],
-  'gulf:s_america':   [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.CAPE,WP.AGULHAS],
+  'gulf:s_america':   [WP.HORMUZ,WP.GULF_OUT,WP.SOF,WP.E_AFR,WP.MADA_S,WP.AGULHAS,WP.CAPE],
   // Gulf of Oman exits (no Hormuz crossing needed)
   'gulf_oman:india_w':[WP.GULF_OUT],
   'gulf_oman:india_e':[WP.GULF_OUT,WP.INDIA_SW],
@@ -437,16 +447,16 @@ const ROUTE_TABLE={
   'gulf_oman:redsea': [WP.SOF,WP.BAB],
   'gulf_oman:med':    [WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
   'gulf_oman:n_europe':[WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
-  'gulf_oman:africa_e':[WP.SOF],
-  'gulf_oman:s_africa':[WP.SOF,WP.CAPE],
+  'gulf_oman:africa_e':[WP.SOF,WP.E_AFR],
+  'gulf_oman:s_africa':[WP.SOF,WP.E_AFR,WP.MADA_S,WP.AGULHAS,WP.CAPE],
   'gulf_oman:n_america':[WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_N,WP.MED_C,WP.GIBR,WP.ATL],
   // India
   'india_w:redsea':   [WP.INDIA_SW,WP.SOF,WP.BAB],
   'india_w:med':      [WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
   'india_w:n_europe': [WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
   'india_w:s_europe_w':[WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W],
-  'india_w:africa_e': [WP.INDIA_SW,WP.SOF],
-  'india_w:s_africa': [WP.INDIA_SW,WP.CAPE],
+  'india_w:africa_e': [WP.INDIA_SW,WP.SOF,WP.E_AFR],
+  'india_w:s_africa': [WP.INDIA_SW,WP.SOF,WP.E_AFR,WP.MADA_S,WP.AGULHAS,WP.CAPE],
   'india_w:n_america':[WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_N,WP.MED_C,WP.GIBR,WP.ATL],
   'india_e:sea':      [WP.INDIA_SE],
   'india_e:china':    [WP.INDIA_SE,WP.MALACCA],
@@ -456,79 +466,120 @@ const ROUTE_TABLE={
   'sea:med':          [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
   'sea:n_europe':     [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
   'sea:redsea':       [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB],
-  'sea:africa_e':     [WP.MALACCA,WP.INDIA_SW,WP.SOF],
+  'sea:africa_e':     [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.E_AFR],
   'sea:n_america':    [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_N,WP.MED_C,WP.GIBR,WP.ATL],
   'china:med':        [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
   'china:n_europe':   [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
   'china:n_america':  [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_N,WP.MED_C,WP.GIBR,WP.ATL],
-  'china:s_america':  [WP.MALACCA,WP.INDIA_SW,WP.CAPE,WP.AGULHAS],
+  'china:s_america':  [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.E_AFR,WP.MADA_S,WP.AGULHAS,WP.CAPE],
   'japan:med':        [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C],
   'japan:n_europe':   [WP.MALACCA,WP.INDIA_SW,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
   // Red Sea / Med / Europe
   'redsea:med':       [WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E],
   'redsea:n_europe':  [WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E,WP.MED_C,WP.MED_W,WP.GIBR],
-  'redsea:africa_e':  [WP.BAB,WP.SOF],
-  'redsea:s_africa':  [WP.BAB,WP.SOF,WP.CAPE],
+  'redsea:africa_e':  [WP.BAB,WP.SOF,WP.E_AFR],
+  'redsea:s_africa':  [WP.BAB,WP.SOF,WP.E_AFR,WP.MADA_S,WP.AGULHAS,WP.CAPE],
   'med:n_europe':     [WP.MED_W,WP.GIBR,WP.ATL],
   'med:n_america':    [WP.MED_W,WP.GIBR,WP.ATL],
   'n_europe:n_america':[WP.ATL],
   // Africa
-  'africa_e:med':     [WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E],
-  'africa_e:n_europe':[WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_N,WP.MED_C,WP.MED_W,WP.GIBR],
-  'africa_e:s_africa':[WP.CAPE],
-  's_africa:n_europe':[WP.CAPE,WP.AGULHAS,WP.GIBR],
-  's_africa:n_america':[WP.CAPE,WP.AGULHAS,WP.ATL],
-  'africa_w:n_europe':[WP.GIBR],
-  'africa_w:n_america':[WP.ATL],
+  'africa_e:med':     [WP.E_AFR,WP.SOF,WP.BAB,WP.RED_S,WP.RED_N,WP.SUEZ_S,WP.SUEZ_N,WP.MED_E],
+  'africa_e:n_europe':[WP.E_AFR,WP.SOF,WP.BAB,WP.RED_N,WP.SUEZ_N,WP.MED_C,WP.MED_W,WP.GIBR],
+  'africa_e:s_africa':[WP.E_AFR,WP.MADA_S,WP.AGULHAS,WP.CAPE],
+  's_africa:n_europe':[WP.CAPE,WP.AGULHAS,WP.W_AFR_ATL,WP.CANARIES,WP.GIBR],
+  's_africa:n_america':[WP.CAPE,WP.AGULHAS,WP.W_AFR_ATL,WP.ATL],
+  'africa_w:n_europe':[WP.W_AFR_ATL,WP.CANARIES,WP.GIBR],
+  'africa_w:n_america':[WP.W_AFR_ATL,WP.ATL],
+  'africa_w:gulf':    [WP.W_AFR_ATL,WP.CANARIES,WP.GIBR,WP.MED_W,WP.MED_C,WP.MED_E,WP.SUEZ_N,WP.SUEZ_S,WP.RED_N,WP.RED_S,WP.BAB,WP.SOF,WP.GULF_OUT,WP.HORMUZ],
+  'africa_w:med':     [WP.W_AFR_ATL,WP.CANARIES,WP.GIBR,WP.MED_W,WP.MED_C],
+  'africa_w:s_africa':[WP.W_AFR_ATL,WP.AGULHAS,WP.CAPE],
 };
+
+// Insert ALBORAN between GIBR and any adjacent Mediterranean waypoint,
+// and STVIN between GIBR and ATL, to prevent routes clipping Iberian/Algerian coasts.
+function _fixAtlanticSegs(wps){
+  const MED_WPS=[WP.MED_W,WP.MED_C,WP.MED_E];
+  const out=[];
+  for(let i=0;i<wps.length;i++){
+    out.push(wps[i]);
+    if(i<wps.length-1){
+      const a=wps[i],b=wps[i+1];
+      const aG=(a===WP.GIBR),bG=(b===WP.GIBR);
+      const aMed=MED_WPS.includes(a),bMed=MED_WPS.includes(b);
+      const aAtl=(a===WP.ATL),bAtl=(b===WP.ATL);
+      // GIBR ↔ Med: insert Alboran Sea to stay south of Spain & north of Algeria
+      if((aG&&bMed)||(aMed&&bG)) out.push(WP.ALBORAN);
+      // GIBR ↔ ATL: insert St. Vincent to go around SW Portugal in open water
+      if((aG&&bAtl)||(aAtl&&bG)) out.push(WP.STVIN);
+    }
+  }
+  return out;
+}
 
 function getSeaWaypoints(from,to){
   const rf=_region(from),rt=_region(to);
-  // Intra-region: add Gulf midpoint to keep Persian Gulf routes in water
   if(rf===rt){
-    if(rf==='gulf'&&Math.abs(from[1]-to[1])>3) return [WP.GULF_MID];
+    if(rf==='gulf'){
+      // Route all intra-Gulf through northern open water (lat 27.5, above Qatar peninsula).
+      const dist=Math.sqrt(Math.pow(to[0]-from[0],2)+Math.pow(to[1]-from[1],2));
+      if(dist>0.4){
+        const midLon=Math.min(Math.max((from[1]+to[1])/2,48.5),56.5);
+        return [[27.5,midLon]];
+      }
+    }
     return [];
   }
   const key1=`${rf}:${rt}`,key2=`${rt}:${rf}`;
-  if(ROUTE_TABLE[key1]) return ROUTE_TABLE[key1];
-  if(ROUTE_TABLE[key2]) return [...ROUTE_TABLE[key2]].reverse();
-  // Fallback: if either is gulf, route via Hormuz
-  if(rf==='gulf'||rt==='gulf') return rf==='gulf'?[WP.HORMUZ,WP.GULF_OUT]:[WP.GULF_OUT,WP.HORMUZ];
-  return [];
+  let wps;
+  if(ROUTE_TABLE[key1])      wps=[...ROUTE_TABLE[key1]];
+  else if(ROUTE_TABLE[key2]) wps=[...ROUTE_TABLE[key2]].reverse();
+  else if(rf==='gulf'||rt==='gulf') wps=rf==='gulf'?[WP.HORMUZ,WP.GULF_OUT]:[WP.GULF_OUT,WP.HORMUZ];
+  else return [];
+
+  // Auto-inject Atlantic coast waypoints for N.Europe routes so ships go:
+  //   port → Finisterre (Bay of Biscay) → St. Vincent (SW Portugal) → Gibraltar
+  // instead of cutting through France/Spain overland.
+  if(rf==='n_europe') wps=[WP.FINISTERRE,WP.STVIN,...wps];
+  if(rt==='n_europe') wps=[...wps,WP.STVIN,WP.FINISTERRE];
+
+  // Fix Gibraltar↔Med and Gibraltar↔Atlantic segments
+  return _fixAtlanticSegs(wps);
 }
 
-function catmullRom(pts,segsPerLeg){
-  const res=[];
-  const s=segsPerLeg||16;
-  for(let i=0;i<pts.length-1;i++){
-    const p0=pts[Math.max(0,i-1)],p1=pts[i],p2=pts[i+1],p3=pts[Math.min(pts.length-1,i+2)];
-    for(let j=0;j<s;j++){
-      const t=j/s,t2=t*t,t3=t2*t;
-      res.push([
-        0.5*((2*p1[0])+(-p0[0]+p2[0])*t+(2*p0[0]-5*p1[0]+4*p2[0]-p3[0])*t2+(-p0[0]+3*p1[0]-3*p2[0]+p3[0])*t3),
-        0.5*((2*p1[1])+(-p0[1]+p2[1])*t+(2*p0[1]-5*p1[1]+4*p2[1]-p3[1])*t2+(-p0[1]+3*p1[1]-3*p2[1]+p3[1])*t3)
-      ]);
-    }
-  }
-  res.push(pts[pts.length-1]);
-  return res;
+// Per-segment quadratic bezier with bounded perpendicular offset.
+// Max deviation from the straight line = min(0.3, 0.015*dist) degrees
+// — guaranteed to never overshoot into land between two water waypoints.
+function _seg(a,b){
+  const dlat=b[0]-a[0],dlon=b[1]-a[1];
+  const dist=Math.sqrt(dlat*dlat+dlon*dlon);
+  const f=Math.min(0.006,0.08/Math.max(dist,0.1));
+  const mx=(a[0]+b[0])/2+dlon*f,my=(a[1]+b[1])/2-dlat*f;
+  const pts=[];
+  for(let j=0;j<=10;j++){const t=j/10,u=1-t;pts.push([u*u*a[0]+2*u*t*mx+t*t*b[0],u*u*a[1]+2*u*t*my+t*t*b[1]]);}
+  return pts;
 }
 
 function buildRoute(from,to){
   const wps=getSeaWaypoints(from,to);
   const pts=[from,...wps,to];
-  // Fixed 16 segments per leg — smooth curve, won't snap to straight lines on long routes
-  return catmullRom(pts,16);
+  const res=[];
+  for(let i=0;i<pts.length-1;i++) res.push(..._seg(pts[i],pts[i+1]));
+  res.push(pts[pts.length-1]);
+  return res;
 }
 
 // ── Road-network waypoints (all on land, verified against road atlases) ────────
 const RWP={
   KFC:     [26.19,50.43],  // King Fahad Causeway (ONLY land link for Bahrain)
   DAMMAM:  [26.43,50.10],
+  HOFUF:   [25.36,49.59],  // Al-Hofuf / Al-Ahsa — inland Saudi road hub
+  HARADH:  [24.14,49.08],  // Haradh — deep Saudi interior (Empty Quarter edge)
+  SALWA:   [24.71,50.82],  // Saudi-Qatar land border (Salwa / Abu Samra crossing)
   RIYADH:  [24.68,46.72],
   JEDDAH:  [21.49,39.18],
   TABUK:   [28.38,36.56],
   KUWAIT:  [29.37,47.97],
+  SA_KW:   [28.55,47.40],  // Saudi-Kuwait land border (Abdali crossing)
   SA_UAE:  [24.00,55.80],  // Saudi-UAE border (Mezyed / Al Ghafia)
   ABUDHABI:[24.47,54.37],
   DUBAI_C: [25.20,55.28],
@@ -562,19 +613,29 @@ function _inBox(pt,la1,la2,ln1,ln2){return pt[0]>=la1&&pt[0]<=la2&&pt[1]>=ln1&&p
 function _fromKFC(dest){
   const [la,ln]=dest;
   const pre=[RWP.KFC];
-  if(_inBox(dest,22,26,51.5,55.2)) return [...pre,RWP.DAMMAM,RWP.SA_UAE,RWP.ABUDHABI];   // Abu Dhabi
-  if(_inBox(dest,24,26.5,54.8,56.5)) return [...pre,RWP.DAMMAM,RWP.SA_UAE,RWP.DUBAI_C];  // Dubai/Sharjah
-  if(_inBox(dest,21,26,55.5,61)) return [...pre,RWP.DAMMAM,RWP.SA_UAE,RWP.AL_AIN,RWP.MUSCAT]; // Oman
-  if(_inBox(dest,28,31,46,50)) return [...pre,RWP.DAMMAM,RWP.KUWAIT];                     // Kuwait
-  if(_inBox(dest,24.5,26.5,50.5,52.5)) return [...pre,RWP.DAMMAM];                        // Qatar
-  if(_inBox(dest,29,38,44,50)) return [...pre,RWP.DAMMAM,RWP.BASRA,...(la>32?[RWP.BAGHDAD]:[])]; // Iraq
-  if(_inBox(dest,29,35,34,40)) return [...pre,RWP.DAMMAM,RWP.RIYADH,RWP.TABUK,RWP.AMMAN]; // Jordan/Levant
-  if(_inBox(dest,21,32,24,37)) return [...pre,RWP.DAMMAM,RWP.RIYADH,RWP.TABUK,RWP.AQABA,RWP.TABA,RWP.CAIRO]; // Egypt
-  if(_inBox(dest,36,43,25,45)) return [...pre,RWP.DAMMAM,RWP.RIYADH,RWP.TABUK,RWP.AMMAN,RWP.DAMASCUS,RWP.GAZIANTEP,RWP.ISTANBUL]; // Turkey
-  if(la>36&&ln<30) return [...pre,RWP.DAMMAM,RWP.RIYADH,RWP.TABUK,RWP.AMMAN,RWP.DAMASCUS,RWP.GAZIANTEP,RWP.ISTANBUL,RWP.SOFIA,...(la>48?[RWP.FRANKFURT]:[])]; // Europe
-  if(_inBox(dest,25,40,44,66)) return [...pre,RWP.DAMMAM,RWP.BASRA,RWP.BAGHDAD,RWP.TEHRAN]; // Iran
-  if(_inBox(dest,20,36,60,82)) return [...pre,RWP.DAMMAM,RWP.BASRA,RWP.BAGHDAD,RWP.TEHRAN,RWP.KARACHI,...(ln>70?[RWP.LAHORE]:[]),...(ln>74?[RWP.DELHI]:[])]; // Pakistan/India
-  return [...pre,RWP.DAMMAM]; // Default: just get to Saudi
+  // UAE — must go inland through Saudi (HOFUF→HARADH) to avoid Gulf crossing
+  if(_inBox(dest,22,26,51.5,55.2)) return [...pre,RWP.DAMMAM,RWP.HOFUF,RWP.HARADH,RWP.SA_UAE,RWP.ABUDHABI];
+  if(_inBox(dest,24,26.5,54.8,56.5)) return [...pre,RWP.DAMMAM,RWP.HOFUF,RWP.HARADH,RWP.SA_UAE,RWP.DUBAI_C];
+  // Oman — same inland Saudi path then AL_AIN border
+  if(_inBox(dest,21,26,55.5,61)) return [...pre,RWP.DAMMAM,RWP.HOFUF,RWP.HARADH,RWP.SA_UAE,RWP.AL_AIN,RWP.MUSCAT];
+  // Kuwait — go via Saudi-Kuwait land border (Abdali), not coast road
+  if(_inBox(dest,28,31,46,50)) return [...pre,RWP.DAMMAM,RWP.SA_KW,RWP.KUWAIT];
+  // Qatar — go via HOFUF→SALWA land border (not directly across the Gulf)
+  if(_inBox(dest,24.5,26.5,50.5,52.5)) return [...pre,RWP.DAMMAM,RWP.HOFUF,RWP.SALWA];
+  // Iraq — via Saudi-Kuwait border then Basra
+  if(_inBox(dest,29,38,44,50)) return [...pre,RWP.DAMMAM,RWP.SA_KW,RWP.BASRA,...(la>32?[RWP.BAGHDAD]:[])];
+  // Jordan / Levant — inland Saudi (Riyadh→Tabuk→Aqaba→Amman)
+  if(_inBox(dest,29,35,34,40)) return [...pre,RWP.DAMMAM,RWP.RIYADH,RWP.TABUK,RWP.AMMAN];
+  // Egypt
+  if(_inBox(dest,21,32,24,37)) return [...pre,RWP.DAMMAM,RWP.RIYADH,RWP.TABUK,RWP.AQABA,RWP.TABA,RWP.CAIRO];
+  // Turkey
+  if(_inBox(dest,36,43,25,45)) return [...pre,RWP.DAMMAM,RWP.RIYADH,RWP.TABUK,RWP.AMMAN,RWP.DAMASCUS,RWP.GAZIANTEP,RWP.ISTANBUL];
+  // Europe
+  if(la>36&&ln<30) return [...pre,RWP.DAMMAM,RWP.RIYADH,RWP.TABUK,RWP.AMMAN,RWP.DAMASCUS,RWP.GAZIANTEP,RWP.ISTANBUL,RWP.SOFIA,...(la>48?[RWP.FRANKFURT]:[])];
+  // Iran / Pakistan / India
+  if(_inBox(dest,25,40,44,66)) return [...pre,RWP.DAMMAM,RWP.SA_KW,RWP.BASRA,RWP.BAGHDAD,RWP.TEHRAN];
+  if(_inBox(dest,20,36,60,82)) return [...pre,RWP.DAMMAM,RWP.SA_KW,RWP.BASRA,RWP.BAGHDAD,RWP.TEHRAN,RWP.KARACHI,...(ln>70?[RWP.LAHORE]:[]),...(ln>74?[RWP.DELHI]:[])];
+  return [...pre,RWP.DAMMAM];
 }
 
 // Road routing between two non-Bahrain points
@@ -590,36 +651,56 @@ function _roadBetween(from,to){
   const fromIQ =_inBox(from,29,38,44,50),toIQ =_inBox(to,29,38,44,50);
   const [fla,fln]=from,[tla,tln]=to;
 
+  // UAE ↔ Oman: inland via Al Ain border
   if(fromUAE&&toOM) return [RWP.AL_AIN];
   if(fromOM&&toUAE) return [RWP.AL_AIN];
-  if(fromSA&&toUAE) return [RWP.SA_UAE];
-  if(fromUAE&&toSA) return [RWP.SA_UAE];
-  if(fromSA&&toOM)  return [RWP.SA_UAE,RWP.AL_AIN];
-  if(fromOM&&toSA)  return [RWP.AL_AIN,RWP.SA_UAE];
-  if(fromUAE&&toIQ) return [RWP.SA_UAE,RWP.DAMMAM,RWP.BASRA];
-  if(fromSA&&toIQ)  return [RWP.BASRA];
-  if(fromIQ&&toSA)  return [RWP.BASRA];
+  // Saudi ↔ UAE/Oman: must go through inland Saudi (HARADH) to avoid Gulf crossing
+  if(fromSA&&toUAE) return [RWP.HARADH,RWP.SA_UAE];
+  if(fromUAE&&toSA) return [RWP.SA_UAE,RWP.HARADH];
+  if(fromSA&&toOM)  return [RWP.HARADH,RWP.SA_UAE,RWP.AL_AIN];
+  if(fromOM&&toSA)  return [RWP.AL_AIN,RWP.SA_UAE,RWP.HARADH];
+  // UAE/Oman ↔ Iraq: inland through Saudi (HARADH→HOFUF→DAMMAM) then to Basra — avoids Gulf
+  if(fromUAE&&toIQ) return [RWP.SA_UAE,RWP.HARADH,RWP.HOFUF,RWP.DAMMAM,RWP.SA_KW,RWP.BASRA];
+  if(fromIQ&&toUAE) return [RWP.BASRA,RWP.SA_KW,RWP.DAMMAM,RWP.HOFUF,RWP.HARADH,RWP.SA_UAE];
+  if(fromOM&&toIQ)  return [RWP.AL_AIN,RWP.SA_UAE,RWP.HARADH,RWP.HOFUF,RWP.DAMMAM,RWP.SA_KW,RWP.BASRA];
+  if(fromIQ&&toOM)  return [RWP.BASRA,RWP.SA_KW,RWP.DAMMAM,RWP.HOFUF,RWP.HARADH,RWP.SA_UAE,RWP.AL_AIN];
+  // Saudi ↔ Iraq: via Saudi-Kuwait border (inland, avoids coast clipping)
+  if(fromSA&&toIQ)  return [RWP.SA_KW,RWP.BASRA];
+  if(fromIQ&&toSA)  return [RWP.BASRA,RWP.SA_KW];
+  // Saudi ↔ Kuwait
+  if(fromSA&&_inBox(to,28,31,46,50))  return [RWP.SA_KW,RWP.KUWAIT];
+  if(_inBox(from,28,31,46,50)&&toSA)  return [RWP.KUWAIT,RWP.SA_KW];
+  // Saudi ↔ Levant / Egypt
   if(fromSA&&toLEV) return [RWP.TABUK,RWP.AMMAN];
   if(fromLEV&&toSA) return [RWP.AMMAN,RWP.TABUK];
   if((fromSA||fromLEV)&&toEG) return [RWP.TABUK,RWP.AQABA,RWP.TABA,RWP.CAIRO];
   if(fromEG&&(toSA||toLEV))   return [RWP.CAIRO,RWP.TABA,RWP.AQABA,RWP.AMMAN];
   if(fromEG&&toLEV) return [RWP.CAIRO,RWP.TABA,RWP.AQABA,RWP.AMMAN];
   if(fromLEV&&toEG) return [RWP.AMMAN,RWP.AQABA,RWP.TABA,RWP.CAIRO];
+  // Turkey ↔ Middle East / Europe
   if((fromSA||fromLEV||fromIQ)&&toTR) return [RWP.AMMAN,RWP.DAMASCUS,RWP.GAZIANTEP,RWP.ISTANBUL];
   if(fromTR&&(toSA||toLEV))  return [RWP.ISTANBUL,RWP.GAZIANTEP,RWP.DAMASCUS,RWP.AMMAN];
   if(fromTR&&toEU)  return [RWP.ISTANBUL,RWP.SOFIA];
   if(fromEU&&toTR)  return [RWP.SOFIA,RWP.ISTANBUL];
+  if((fromUAE||fromOM)&&toTR) return [RWP.SA_UAE,RWP.HARADH,RWP.RIYADH,RWP.TABUK,RWP.AMMAN,RWP.DAMASCUS,RWP.GAZIANTEP,RWP.ISTANBUL];
+  if(fromTR&&(toUAE||toOM))  return [RWP.ISTANBUL,RWP.GAZIANTEP,RWP.DAMASCUS,RWP.AMMAN,RWP.TABUK,RWP.RIYADH,RWP.HARADH,RWP.SA_UAE];
+  // Europe ↔ Middle East / Gulf
   if((fromSA||fromUAE||fromLEV)&&toEU) return [RWP.AMMAN,RWP.DAMASCUS,RWP.GAZIANTEP,RWP.ISTANBUL,RWP.SOFIA,...(tla>48?[RWP.FRANKFURT]:[])];
   if(fromEU&&(toSA||toUAE||toLEV)) return [RWP.SOFIA,RWP.ISTANBUL,RWP.GAZIANTEP,RWP.DAMASCUS,RWP.AMMAN];
+  // Iran ↔ all
   if(fromIR&&toTR)  return [RWP.TEHRAN,RWP.TABRIZ,RWP.ISTANBUL];
   if(fromTR&&toIR)  return [RWP.ISTANBUL,RWP.TABRIZ,RWP.TEHRAN];
-  if(fromIR&&(toSA||toUAE)) return [RWP.TEHRAN,RWP.BAGHDAD,RWP.BASRA];
-  if((fromSA||fromUAE)&&toIR) return [RWP.BASRA,RWP.BAGHDAD,RWP.TEHRAN];
+  if(fromIR&&(toSA||toUAE)) return [RWP.TEHRAN,RWP.BAGHDAD,RWP.BASRA,RWP.SA_KW,RWP.DAMMAM,RWP.HARADH];
+  if((fromSA||fromUAE)&&toIR) return [RWP.HARADH,RWP.DAMMAM,RWP.SA_KW,RWP.BASRA,RWP.BAGHDAD,RWP.TEHRAN];
   if(fromIR&&toEU) return [RWP.TEHRAN,RWP.TABRIZ,RWP.ISTANBUL,RWP.SOFIA];
+  if(fromEU&&toIR) return [RWP.SOFIA,RWP.ISTANBUL,RWP.TABRIZ,RWP.TEHRAN];
   return [];
 }
 
 function buildRoadRoute(from,to){
+  // Sanity check: road routes can't cross oceans. If points > 35° apart, follow sea lanes instead.
+  const dist=Math.sqrt(Math.pow(to[0]-from[0],2)+Math.pow(to[1]-from[1],2));
+  if(dist>35) return buildRoute(from,to);
   const fromBH=_inBox(from,25.9,26.6,50.35,50.75);
   const toBH  =_inBox(to,  25.9,26.6,50.35,50.75);
   let wps;
@@ -631,7 +712,15 @@ function buildRoadRoute(from,to){
     wps=_roadBetween(from,to);
   }
   if(!wps.length) return buildDirectRoute(from,to);
-  return catmullRom([from,...wps,to],16);
+  const pts=[from,...wps,to];
+  const res=[];
+  // Road: straight-line interpolation — no bezier offset, prevents arcing over sea
+  for(let i=0;i<pts.length-1;i++){
+    const a=pts[i],b=pts[i+1];
+    for(let j=0;j<10;j++){const t=j/10;res.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);}
+  }
+  res.push(pts[pts.length-1]);
+  return res;
 }
 
 const PORT_COORDS={
@@ -856,6 +945,52 @@ const PORT_COORDS={
   'king abdulaziz port':[26.43,50.10],
   'jebel ali':[25.01,55.06],
   'kbsp':[26.10,50.62],                              // Khalifa Bin Salman Port abbreviation
+  // ── Road freight: country/city aliases ─────────────────────────────────
+  'manama':[26.22,50.59],'kingdom of bahrain':[26.23,50.58],
+  'saudi arabia':[26.43,50.10],'ksa':[26.43,50.10],'kingdom of saudi arabia':[26.43,50.10], // Dammam port
+  'riyadh':[26.43,50.10],'riyadh city':[26.43,50.10],'al riyadh':[26.43,50.10],            // Riyadh ships via Dammam
+  'al khobar':[26.28,50.20],'khobar':[26.28,50.20],
+  'sharjah':[25.36,55.39],'ajman':[25.41,55.44],'umm al quwain':[25.56,55.55],
+  'ras al khaimah':[25.79,55.94],'rak':[25.79,55.94],
+  'united arab emirates':[25.01,55.06],'uae':[25.01,55.06],  // Jebel Ali port
+  'abu dhabi city':[24.80,54.63],'dubai city':[25.01,55.06], // Khalifa/Jebel Ali
+  'jebel ali (jafza)':[25.01,55.06],'jafza':[25.01,55.06],
+  'qatar':[25.29,51.53],'state of qatar':[25.29,51.53],
+  // ── Country → main sea/air GATEWAY (coastal, not inland capitals) ───────────
+  // Used as fallback when team leaves Origin/Dest Port blank.
+  // Must be on or very near the coast so ships/planes don't appear on land.
+  'oman':[23.63,58.59],'sultanate of oman':[23.63,58.59],'muscat city':[23.63,58.59],
+  'kuwait city':[29.37,47.97],'state of kuwait':[29.37,47.97],
+  'iraq':[30.03,47.93],                                        // Umm Qasr port
+  'jordan':[29.52,35.00],                                      // Aqaba port
+  'lebanon':[33.90,35.50],                                     // Beirut port
+  'syria':[35.52,35.79],                                       // Latakia port
+  'india':[18.95,72.95],                                       // Mumbai / JNPT
+  'new delhi':[18.95,72.95],                                   // Delhi shipments go via Mumbai
+  'china':[31.23,121.47],                                      // Shanghai
+  'beijing':[39.00,117.72],                                    // Tianjin (Beijing's port)
+  'united kingdom':[51.51,0.09],'uk':[51.51,0.09],            // Tilbury / London
+  'germany':[53.55,9.97],                                      // Hamburg
+  'netherlands':[51.95,4.13],                                  // Rotterdam
+  'france':[49.49,0.11],                                       // Le Havre
+  'turkey':[36.80,34.63],                                      // Mersin port
+  'ankara':[36.80,34.63],                                      // Ankara shipments via Mersin
+  'south korea':[35.10,129.04],                                // Busan
+  'japan':[35.44,139.64],                                      // Yokohama
+  'malaysia':[3.00,101.40],                                    // Port Klang
+  'thailand':[13.08,100.89],                                   // Laem Chabang
+  'indonesia':[6.10,106.88],                                   // Tanjung Priok
+  'vietnam':[10.78,106.72],                                    // HCMC
+  'taiwan':[25.13,121.74],                                     // Keelung
+  'pakistan':[24.86,66.99],                                    // Karachi
+  'bangladesh':[22.34,91.83],                                  // Chattogram
+  'sri lanka':[6.93,79.86],                                    // Colombo
+  'italy':[44.41,8.92],                                        // Genoa
+  'spain':[41.35,2.18],                                        // Barcelona
+  'belgium':[51.23,4.40],                                      // Antwerp
+  'usa':[40.66,-74.05],'united states':[40.66,-74.05],         // New York port
+  'australia':[-33.86,151.21],                                 // Sydney
+  'morocco':[33.60,-7.62],                                     // Casablanca
 };
 function getPortCoords(name){
   if(!name) return null;
@@ -878,86 +1013,231 @@ function _isHidden(sh){return HIDE_STATUSES.some(x=>sh.status.toLowerCase().incl
 
 function buildDirectRoute(from,to){
   const pts=[];
-  // Slight bezier curve for visual niceness
-  const mid=[(from[0]+to[0])/2+(to[1]-from[1])*0.08,(from[1]+to[1])/2-(to[0]-from[0])*0.08];
+  const dlon=to[1]-from[1], dlat=to[0]-from[0];
+  const dist=Math.sqrt(dlon*dlon+dlat*dlat);
+  // Cap bezier offset so long routes don't arc wildly north (max ~3° offset)
+  const f=Math.min(0.07, 3/Math.max(dist,1));
+  const mid=[(from[0]+to[0])/2+dlon*f,(from[1]+to[1])/2-dlat*f];
   for(let i=0;i<=32;i++){const t=i/32;const u=1-t;pts.push([u*u*from[0]+2*u*t*mid[0]+t*t*to[0],u*u*from[1]+2*u*t*mid[1]+t*t*to[1]]);}
   return pts;
 }
 
-function renderShipmentsMap(shipments){
-  const visible=shipments.filter(s=>!_isHidden(s)&&s.originPort&&s.destPort);
-  const wrap=document.getElementById('shipmentsMapWrap');
-  if(!wrap){console.error('[Map] shipmentsMapWrap not found');return;}
-  wrap.style.display='';
+function _renderModeMap(mapId, ships, modeKey, modeColor){
+  const mapEl=document.getElementById(mapId);
+  if(!mapEl||!ships.length) return null;
+  const isAir=modeKey==='air', isRoad=modeKey==='road';
 
-  const matched=visible.filter(s=>getPortCoords(s.originPort)&&getPortCoords(s.destPort));
-  if(!matched.length) return;
-  if(window._trackingMap){window._trackingMap.remove();window._trackingMap=null;}
+  // Mode-specific tile layers
+  const tiles={
+    // Sea: OpenSeaMap nautical chart overlay on top of a clean ocean base
+    sea:{
+      base:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      attr:'© OpenStreetMap © CARTO',
+      overlay:'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
+      overlayAttr:'© OpenSeaMap',
+      opts:{maxZoom:18,subdomains:'abcd'}
+    },
+    // Road: standard street map (OpenStreetMap Carto style — road detail, place names)
+    road:{
+      base:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attr:'© OpenStreetMap contributors',
+      opts:{maxZoom:19}
+    },
+    // Air: Esri World Imagery satellite (terrain visible, how pilots see the world)
+    air:{
+      base:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      attr:'© Esri, Maxar, GeoEye',
+      opts:{maxZoom:18}
+    }
+  };
+  const tCfg=tiles[modeKey]||tiles.sea;
+  const map=L.map(mapEl,{zoomControl:true,preferCanvas:false});
+  L.tileLayer(tCfg.base,{attribution:tCfg.attr,...tCfg.opts}).addTo(map);
+  if(tCfg.overlay) L.tileLayer(tCfg.overlay,{attribution:tCfg.overlayAttr,opacity:0.7,maxZoom:18}).addTo(map);
 
-  const map=L.map('shipmentsMap',{zoomControl:true,preferCanvas:false});
-  window._trackingMap=map;
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',{
-    attribution:'© OpenStreetMap © CARTO',maxZoom:19,subdomains:'abcd'
-  }).addTo(map);
-  // Force Leaflet to recalculate container size after DOM insertion
-  setTimeout(()=>map.invalidateSize(),100);
+  // Legend
+  const legend=L.control({position:'bottomright'});
+  legend.onAdd=function(){
+    const d=L.DomUtil.create('div');
+    d.style.pointerEvents='none';
+    const bg=isRoad?'rgba(255,255,255,0.93)':'rgba(8,14,26,0.92)';
+    const border=isRoad?'#ccc':'#1e2f42';
+    const txt=isRoad?'#333':'#7a8fa5';
+    const hdr=isRoad?'#111':'#c8d8e8';
+    const lineStyle=isAir?`border-bottom:2px solid ${modeColor}`:isRoad?`border-bottom:2px dotted ${modeColor}`:`border-bottom:2px dashed ${modeColor}`;
+    d.innerHTML=`<div style="background:${bg};border:1px solid ${border};border-radius:9px;padding:10px 13px;font-size:11px;color:${txt};line-height:2;min-width:120px">
+      <div style="font-weight:700;color:${hdr};margin-bottom:4px;font-size:11px;letter-spacing:.05em">STATUS</div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#ef4444"></span>Delayed</div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#f97316"></span>Rerouted</div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#22c55e"></span>Arrived</div>
+      <div style="display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:22px;height:0;${lineStyle}"></span>In Transit</div>
+    </div>`;
+    return d;
+  };
+  legend.addTo(map);
+
+  // Track which port coords already have a name label so we don't duplicate
+  const labeledPorts=new Set();
+  function addPortLabel(coord, name, isOrigin){
+    const key=coord[0].toFixed(2)+','+coord[1].toFixed(2);
+    if(labeledPorts.has(key)) return;
+    labeledPorts.add(key);
+    const shortName=(name||'').split('/')[0].trim().split('(')[0].trim();
+    if(!shortName) return;
+    const bg=isRoad?'rgba(255,255,255,0.88)':'rgba(8,14,26,0.82)';
+    const col=isRoad?'#222':'#c8d8e8';
+    const bdr=isRoad?'#aaa':'#1e3a5f';
+    const icon=L.divIcon({
+      html:`<div style="background:${bg};color:${col};border:1px solid ${bdr};padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;pointer-events:none;">${esc(shortName)}</div>`,
+      className:'',iconAnchor:[-4,10]
+    });
+    L.marker(coord,{icon,interactive:false,zIndexOffset:-100}).addTo(map);
+  }
 
   const bounds=[];
-  for(const sh of visible){
-    const from=getPortCoords(sh.originPort)||getPortCoords(sh.originCity);
-    const to=getPortCoords(sh.destPort)||getPortCoords(sh.destCity);
+  for(const sh of ships){
+    const from=getPortCoords(sh.originPort)||getPortCoords(sh.originCity)||getPortCoords(sh.country);
+    const to=getPortCoords(sh.destPort)||getPortCoords(sh.destCity)||getPortCoords(sh.countryOfDest);
     if(!from||!to) continue;
 
     const isRerouted=sh.rerouted==='Yes';
-    const isArrived=_isArrived(sh);
-    const isAir=_isAir(sh);
-    const isRoad=_isRoad(sh);
+    const arrived=_isArrived(sh);
     const st=sh.status.toLowerCase();
-    const colour=isRerouted?'#f97316':st.includes('delay')||st.includes('block')?'#ef4444':st.includes('custom')?'#f59e0b':st.includes('arrived')||st.includes('cleared')?'#22c55e':isAir?'#a78bfa':isRoad?'#fb923c':'#3b82f6';
+    const colour=isRerouted?'#f97316':st.includes('delay')||st.includes('block')?'#ef4444':st.includes('custom')?'#f59e0b':arrived?'#22c55e':modeColor;
 
     const route=isAir?buildDirectRoute(from,to):isRoad?buildRoadRoute(from,to):buildRoute(from,to);
 
-    // Shadow/glow line (thicker, lower opacity)
-    L.polyline(route,{color:colour,weight:5,opacity:0.18,smoothFactor:1}).addTo(map);
-    // Main animated line
-    const line=L.polyline(route,{color:colour,weight:2.5,opacity:0.85,dashArray:'14 7',smoothFactor:1}).addTo(map);
-    // Animate dashes flowing along route (deferred so SVG is in DOM)
-    setTimeout(()=>{const el=line.getElement();if(el){el.style.animation='aisFlow 1.8s linear infinite';}},50);
+    L.polyline(route,{color:colour,weight:7,opacity:0.07,smoothFactor:1}).addTo(map);
+    const lineOpts={color:colour,weight:1.8,opacity:0.85,smoothFactor:1};
+    if(!isAir) lineOpts.dashArray=isRoad?'4 6':'8 5';
+    const line=L.polyline(route,lineOpts).addTo(map);
+    if(!isAir) setTimeout(()=>{const el=line.getElement();if(el) el.style.animation='aisFlow 2.4s linear infinite';},80);
 
-    // Port dots
-    L.circleMarker(from,{radius:5,color:colour,fillColor:colour,fillOpacity:0.9,weight:2}).addTo(map);
-    L.circleMarker(to,{radius:isArrived?7:5,color:isArrived?'#22c55e':colour,fillColor:isArrived?'#22c55e':colour,fillOpacity:0.9,weight:2}).addTo(map);
+    // Origin & destination dots
+    L.circleMarker(from,{radius:4,color:colour,fillColor:isRoad?'#fff':'#080e1a',fillOpacity:1,weight:2}).addTo(map);
+    L.circleMarker(to,{radius:arrived?6:4,color:arrived?'#22c55e':colour,fillColor:arrived?'#22c55e':isRoad?'#fff':colour,fillOpacity:1,weight:2}).addTo(map);
+
+    // Port / city name labels
+    const originName=sh.originPort||sh.originCity||sh.country||'';
+    const destName=sh.destPort||sh.destCity||sh.countryOfDest||'';
+    addPortLabel(from, originName, true);
+    addPortLabel(to, destName, false);
 
     let pos,prog;
-    if(isArrived){pos=to;prog=100;}
+    if(arrived){pos=to;prog=100;}
     else{
-      const etd=sh.etd?new Date(sh.etd):null;const eta=sh.eta?new Date(sh.eta):null;prog=50;
+      const etd=sh.etd?new Date(sh.etd):null,eta=sh.eta?new Date(sh.eta):null;prog=50;
       if(etd&&eta&&eta>etd) prog=Math.round(Math.max(0,Math.min(1,(new Date()-etd)/(eta-etd)))*100);
       pos=route[Math.round(prog/100*(route.length-1))];
     }
 
-    const iconHtml=isArrived
-      ?(isAir?`<div style="font-size:22px;line-height:1;cursor:pointer">🛬</div>`:isRoad?`<div style="font-size:22px;line-height:1;cursor:pointer">🏭</div>`:`<div style="font-size:22px;line-height:1;cursor:pointer">⚓</div>`)
-      :(isAir?`<div style="font-size:24px;line-height:1;cursor:pointer;filter:drop-shadow(0 0 6px ${colour})">✈️</div>`:isRoad?`<div style="font-size:24px;line-height:1;cursor:pointer;filter:drop-shadow(0 0 6px ${colour})">🚛</div>`:`<div style="font-size:24px;line-height:1;cursor:pointer;filter:drop-shadow(0 0 6px ${colour})">🚢</div>`);
-    const icon=L.divIcon({html:iconHtml,className:'leaflet-interactive',iconSize:[28,28],iconAnchor:[14,14]});
+    const emoji=arrived?(isAir?'🛬':isRoad?'🏭':'⚓'):(isAir?'✈️':isRoad?'🚛':'🚢');
+    const bgC=isRoad?'rgba(255,255,255,0.95)':'rgba(8,14,26,0.92)';
+    const iconHtml=`<div style="width:34px;height:34px;border-radius:50%;background:${bgC};border:2px solid ${colour};display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;box-shadow:0 2px 10px ${colour}55;transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform='scale(1.18)';this.style.boxShadow='0 4px 18px ${colour}88'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 2px 10px ${colour}55'">${emoji}</div>`;
+    const icon=L.divIcon({html:iconHtml,className:'',iconSize:[34,34],iconAnchor:[17,17]});
     const marker=L.marker(pos,{icon}).addTo(map);
     marker.on('click',()=>openVesselPanel(sh,prog));
 
     const vessel=activeVessel(sh);
     const modeIcon=isAir?'✈️':isRoad?'🚛':'🚢';
-    const tipHtml=`<div style="font-size:12px;line-height:1.8;min-width:220px">
-      <b style="font-size:13px;color:#fff">${esc(sh.supplier||sh.item||'Shipment')}</b><br>
-      <span style="color:#94a3b8">${esc(sh.originPort||sh.originCity||'?')} → ${esc(sh.destPort||sh.destCity||'?')}</span><br>
-      ${vessel&&!isAir&&!isRoad?`<span style="color:#93c5fd">🚢 ${esc(vessel)}</span><br>`:''}
-      ${sh.blAwb?`<span style="color:#94a3b8">${isAir||_isDHL(sh)?'AWB':'BL/AWB'}: ${esc(sh.blAwb)}</span><br>`:''}
+    const tipBg=isRoad?'#fff':'rgba(8,14,26,0.97)';
+    const tipCol=isRoad?'#111':'#e2e8f0';
+    const tipHtml=`<div style="font-size:12px;line-height:1.8;min-width:220px;background:${tipBg};color:${tipCol}">
+      <b style="font-size:13px">${esc(sh.supplier||sh.item||'Shipment')}</b><br>
+      <span>${esc(originName||'?')} → ${esc(destName||'?')}</span><br>
+      ${vessel&&!isAir&&!isRoad?`<span style="color:#3b82f6">🚢 ${esc(vessel)}</span><br>`:''}
+      ${sh.blAwb?`<span>${isAir||_isDHL(sh)?'AWB':'BL/AWB'}: ${esc(sh.blAwb)}</span><br>`:''}
       <span>ETD: <b>${sh.etd||'—'}</b> &nbsp;|&nbsp; ETA: <b>${sh.eta||'—'}</b></span><br>
-      <span style="color:${colour}">${isArrived?`✅ ${modeIcon} Arrived at destination`:isRerouted?`🔀 Rerouted · ${prog}%`:`${modeIcon} ${prog}% complete`}</span>
-      ${sh.delayReason?`<br><span style="color:#f87171">⚠️ ${esc(sh.delayReason)}</span>`:''}
+      <span style="color:${colour}">${arrived?`✅ ${modeIcon} Arrived`:isRerouted?`🔀 Rerouted · ${prog}%`:`${modeIcon} ${prog}% complete`}</span>
+      ${sh.delayReason?`<br><span style="color:#ef4444">⚠️ ${esc(sh.delayReason)}</span>`:''}
     </div>`;
     marker.bindTooltip(tipHtml,{direction:'top',opacity:0.98,className:'ship-tooltip'});
     bounds.push(from,to);
   }
   if(bounds.length) map.fitBounds(bounds,{padding:[40,40]});
+  setTimeout(()=>map.invalidateSize(),150);
+  return map;
+}
+
+function switchMapTab(mode){
+  const cfg={sea:{c:'#3b82f6'},air:{c:'#a78bfa'},road:{c:'#fb923c'}};
+  ['sea','air','road'].forEach(m=>{
+    const panel=document.getElementById('mapPanel-'+m);
+    const btn=document.getElementById('mapTabBtn-'+m);
+    if(panel) panel.style.display=m===mode?'':'none';
+    if(btn){
+      const active=m===mode;
+      btn.style.background=active?cfg[m].c+'22':'transparent';
+      btn.style.color=active?cfg[m].c:'#4a5a6a';
+      btn.style.borderBottom=active?`2px solid ${cfg[m].c}`:'2px solid transparent';
+    }
+  });
+  if(!window._trackingMaps) window._trackingMaps={};
+  if(window._trackingMaps[mode]){
+    // Already rendered — just fix size after becoming visible
+    setTimeout(()=>window._trackingMaps[mode].invalidateSize(),80);
+  } else if(window._pendingMapModes&&window._pendingMapModes[mode]){
+    // Lazy render: panel is now visible, safe to initialize Leaflet
+    const {ships,color}=window._pendingMapModes[mode];
+    const m=_renderModeMap('map-'+mode,ships,mode,color);
+    if(m) window._trackingMaps[mode]=m;
+  }
+}
+
+function renderShipmentsMap(shipments){
+  const visible=shipments.filter(s=>!_isHidden(s)&&(s.originPort||s.country)&&(s.destPort||s.countryOfDest));
+  const wrap=document.getElementById('shipmentsMapWrap');
+  if(!wrap) return;
+  wrap.style.display='';
+
+  const matched=visible.filter(s=>(getPortCoords(s.originPort)||getPortCoords(s.originCity)||getPortCoords(s.country))&&(getPortCoords(s.destPort)||getPortCoords(s.destCity)||getPortCoords(s.countryOfDest)));
+
+  // Split by mode
+  const seaSh=matched.filter(s=>!_isAir(s)&&!_isRoad(s));
+  const airSh=matched.filter(s=>_isAir(s));
+  const roadSh=matched.filter(s=>_isRoad(s));
+
+  // Stats bar
+  const statsEl=document.getElementById('mapStatsBar');
+  if(statsEl){
+    const seaN=seaSh.filter(s=>!_isArrived(s)).length,airN=airSh.filter(s=>!_isArrived(s)).length,roadN=roadSh.filter(s=>!_isArrived(s)).length;
+    const arrN=matched.filter(s=>_isArrived(s)).length,reN=matched.filter(s=>s.rerouted==='Yes'&&!_isArrived(s)).length,delN=matched.filter(s=>s.status.toLowerCase().includes('delay')&&!_isArrived(s)).length;
+    const pill=(ic,n,lbl,col)=>n>0?`<span class="map-stat-pill" style="background:${col}18;border:1px solid ${col}40"><span style="font-size:14px">${ic}</span><b style="font-size:13px;color:${col}">${n}</b><span style="color:#6b7a8d">${lbl}</span></span>`:'';
+    statsEl.innerHTML='<span style="font-size:11px;color:#4a5a6a;font-weight:600;margin-right:4px">LIVE TRACKING</span>'
+      +pill('🚢',seaN,'Sea','#3b82f6')+pill('✈️',airN,'Air','#a78bfa')+pill('🚛',roadN,'Road','#fb923c')
+      +pill('⚓',arrN,'Arrived','#22c55e')+(reN?pill('🔀',reN,'Rerouted','#f97316'):'')+(delN?pill('⚠️',delN,'Delayed','#ef4444'):'');
+  }
+
+  if(!matched.length) return;
+
+  // Destroy old maps and pending data
+  if(window._trackingMaps){Object.values(window._trackingMaps).forEach(m=>{try{m.remove();}catch(e){}});}
+  window._trackingMaps={};
+  window._pendingMapModes={};
+
+  // Build mode list (only modes with data)
+  const modes=[
+    {id:'sea',label:'🚢 Sea',ships:seaSh,color:'#3b82f6'},
+    {id:'air',label:'✈️ Air',ships:airSh,color:'#a78bfa'},
+    {id:'road',label:'🚛 Road',ships:roadSh,color:'#fb923c'},
+  ].filter(t=>t.ships.length>0);
+
+  // Store data for lazy rendering
+  modes.forEach(t=>{window._pendingMapModes[t.id]={ships:t.ships,color:t.color};});
+
+  // Build tab buttons
+  const tabsEl=document.getElementById('mapModeTabs');
+  if(tabsEl){
+    tabsEl.innerHTML=modes.map(t=>`
+      <button id="mapTabBtn-${t.id}" onclick="switchMapTab('${t.id}')"
+        style="flex:1;padding:10px 0;border:none;border-bottom:2px solid transparent;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:.02em;transition:all 0.18s;background:transparent;color:#4a5a6a;display:flex;align-items:center;justify-content:center;gap:7px">
+        ${t.label}
+        <span style="font-size:11px;padding:1px 7px;border-radius:20px;background:#1a2f46;color:#7a8fa5">${t.ships.length}</span>
+      </button>`).join('');
+  }
+
+  // Activate first tab — lazy render fires inside switchMapTab once panel is visible
+  if(modes.length) switchMapTab(modes[0].id);
 }
 
 function openVesselPanel(sh,pct){
@@ -968,9 +1248,17 @@ function openVesselPanel(sh,pct){
   const isDHL=_isDHL(sh);
   const panel=document.getElementById('vesselPanel');
   if(!panel) return;
-  const modeLabel=isAir?'✈️ Air':'🚛 Road';
-  const titleId=isDHL?`DHL ${sh.blAwb||'Shipment'}`:isAir?(vessel||sh.carrier||'Air Shipment'):isRoad?(sh.carrier||'Road Shipment'):(vessel||sh.carrier||'Shipment');
-  document.getElementById('vesselPanelTitle').textContent=titleId+'  —  '+(sh.originPort||'')+' → '+(sh.destPort||'');
+  const modeLabel=isDHL?'📦 DHL Express':isAir?'✈️ Air Freight':isRoad?'🚛 Road Freight':'🚢 Sea Freight';
+  const titleId=isDHL?`DHL — ${sh.blAwb||'Shipment'}`:isAir?(vessel||sh.carrier||'Air Shipment'):isRoad?(sh.carrier||'Road Shipment'):(vessel||sh.carrier||'Shipment');
+  const panelColour=isDHL?'#f59e0b':isAir?'#a78bfa':isRoad?'#fb923c':'#3b82f6';
+  document.getElementById('vesselPanelTitle').textContent=titleId;
+  document.getElementById('vesselPanelSub').textContent=`${modeLabel}  ·  ${sh.originPort||sh.originCity||''}  →  ${sh.destPort||sh.destCity||''}`;
+  // Colour the left border of the header to match mode
+  const hdr=document.getElementById('vesselPanelHeader');
+  if(hdr) hdr.style.borderLeft=`3px solid ${panelColour}`;
+  // Progress bar
+  const progBar=document.getElementById('vesselProgressBar');
+  if(progBar){progBar.style.width=(isArrived?100:pct)+'%';progBar.style.background=isArrived?'#22c55e':panelColour;}
   const iframe=document.getElementById('vesselIframe');
   iframe.src=''; iframe.style.display='none';
   const lvl=userLevel();
@@ -992,21 +1280,24 @@ function openVesselPanel(sh,pct){
     </div>`;
   }
 
-  document.getElementById('vesselDetails').innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;font-size:13px">
-    <div><span style="color:var(--text-muted);font-size:11px">SUPPLIER</span><br><b>${esc(sh.supplier||'—')}</b></div>
-    <div><span style="color:var(--text-muted);font-size:11px">STATUS</span><br><b style="color:${isArrived?'#38a169':'inherit'}">${esc(sh.status||'—')}</b></div>
-    <div><span style="color:var(--text-muted);font-size:11px">JOURNEY</span><br><b>${isArrived?'Arrived ✅':pct+'% complete'}</b></div>
-    <div><span style="color:var(--text-muted);font-size:11px">ETD</span><br>${sh.etd||'—'}</div>
-    <div><span style="color:var(--text-muted);font-size:11px">ETA</span><br>${sh.eta||'—'}</div>
-    <div><span style="color:var(--text-muted);font-size:11px">${isAir||isDHL?'AWB #':'BL / AWB'}</span><br>${esc(sh.blAwb||'—')}</div>
-    ${sh.mode?`<div><span style="color:var(--text-muted);font-size:11px">MODE</span><br>${isAir?'✈️':isRoad?'🚛':'🚢'} ${esc(sh.mode)}</div>`:''}
-    ${vessel&&!isAir&&!isRoad?`<div><span style="color:var(--text-muted);font-size:11px">VESSEL</span><br>${esc(vessel)}</div>`:''}
-    ${lvl>=3&&sh.carrier?`<div><span style="color:var(--text-muted);font-size:11px">CARRIER</span><br>${esc(sh.carrier)}</div>`:''}
-    ${sh.countryOfDest?`<div><span style="color:var(--text-muted);font-size:11px">DEST COUNTRY</span><br>${esc(sh.countryOfDest)}</div>`:''}
-    ${sh.delayReason?`<div style="grid-column:1/-1"><span style="color:#e53e3e;font-size:11px">⚠️ DELAY</span><br>${esc(sh.delayReason)}</div>`:''}
+  const statusColour=sh.status.toLowerCase().includes('delay')||sh.status.toLowerCase().includes('block')?'#ef4444':isArrived?'#22c55e':sh.status.toLowerCase().includes('custom')?'#f59e0b':'#94a3b8';
+  const cell=(lbl,val,col)=>`<div style="padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:7px;border:1px solid #1a2f46"><span style="display:block;color:#4a5a6a;font-size:10px;letter-spacing:.06em;margin-bottom:3px">${lbl}</span><b style="font-size:13px;color:${col||'var(--text-primary)'}">${val}</b></div>`;
+  const journeyLabel=isArrived?'Arrived ✅':(pct+'% complete');
+  document.getElementById('vesselDetails').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:13px">
+      ${cell('SUPPLIER',esc(sh.supplier||'—'))}
+      ${cell('STATUS',esc(sh.status||'—'),statusColour)}
+      ${cell('JOURNEY',journeyLabel,isArrived?'#22c55e':panelColour)}
+      ${cell('ETD',sh.etd||'—')}
+      ${cell('ETA',sh.eta||'—')}
+      ${cell(isAir||isDHL?'AWB #':'BL / AWB',esc(sh.blAwb||'—'))}
+      ${vessel&&!isAir&&!isRoad?cell('VESSEL',esc(vessel),'#93c5fd'):''}
+      ${lvl>=3&&sh.carrier?cell('CARRIER',esc(sh.carrier)):''}
+      ${sh.countryOfDest?cell('DEST COUNTRY',esc(sh.countryOfDest)):''}
+    </div>
+    ${sh.delayReason?`<div style="margin-top:8px;padding:8px 10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:7px;font-size:12px;color:#fca5a5"><b style="color:#ef4444">⚠️ Delay:</b> ${esc(sh.delayReason)}</div>`:''}
     ${rerouteRow}
-    ${trackBtns}
-  </div>`;
+    ${trackBtns}`;
   panel.style.display='block';
   panel.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -1050,18 +1341,39 @@ function parseExcel(arrayBuffer){
   const wb = XLSX.read(arrayBuffer,{type:'array',cellDates:true});
   const toArr=(name,headerRow)=>{const ws=wb.Sheets[name];if(!ws)return[];return XLSX.utils.sheet_to_json(ws,{range:headerRow||0,defval:''});};
 
-  DATA.localPurchases = toArr('Local Purchases').filter(r=>r['Division']).map((r,i)=>({
-    id:'LP-'+i, division:r['Division']||'', jobCode:r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'', projectName:r['Project Name']||'',
-    prNumber:r['PR Number']||'', item:r['Item Description']||'', requestedBy:r['Requested By']||'',
-    dateRaised:formatDate(r['Date Raised']), category:r['Category']||'', priority:r['Priority']||'Normal',
-    estimatedValue:num(r['Estimated Value (BHD)']), stage:r['Current Stage']||'',
-    buyer:r['Assigned Buyer']||'', supplier:r['Supplier Name']||'',
-    poNumber:r['PO Number']||'', poValue:num(r['PO Value (BHD)']),
-    paymentTerms:r['Payment Terms']||'',
-    expectedDelivery:formatDate(r['Expected Delivery Date']),
-    daysInStage:num(r['Days in Current Stage']), remarks:r['Remarks / Blockers']||'',
-    cancellationReason:r['Cancellation Reason']||''
-  }));
+  // Build project code → name map directly from Project Codes sheet (bypasses VLOOKUP cache)
+  const _pcMap={};
+  toArr('Project Codes').forEach(r=>{
+    const c=r['Project / Job Code'];if(c!=null&&String(c).trim())_pcMap[String(c).trim()]=r['Project Name']||'';
+  });
+  const _pcName=code=>code?(_pcMap[String(code).trim()]||''):'';
+
+  // Calculate days-in-stage in JS (bypasses Excel formula cache which may be stale)
+  const CLOSED_STAGES=new Set(['Closed / Completed','Cancelled']);
+  const _days=(dateRaised,stage)=>{
+    if(CLOSED_STAGES.has(stage)) return 0;
+    if(!dateRaised) return 0;
+    return Math.max(0,Math.floor((Date.now()-new Date(dateRaised))/86400000));
+  };
+  const _daysSinceDate=d=>{if(!d)return 0;return Math.max(0,Math.floor((Date.now()-new Date(d))/86400000));};
+
+  DATA.localPurchases = toArr('Local Purchases').filter(r=>r['Division']).map((r,i)=>{
+    const stage=(r['Current Stage']||'').trim();
+    const dateRaised=formatDate(r['Date Raised']);
+    const jobCode=r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'';
+    return {
+      id:'LP-'+i, division:r['Division']||'', jobCode, projectName:_pcName(jobCode),
+      prNumber:r['PR Number']||'', item:r['Item Description']||'', requestedBy:r['Requested By']||'',
+      dateRaised, category:r['Category']||'', priority:r['Priority']||'Normal',
+      estimatedValue:num(r['Estimated Value (BHD)']), stage,
+      buyer:r['Assigned Buyer']||'', supplier:r['Supplier Name']||'',
+      poNumber:r['PO Number']||'', poValue:num(r['PO Value (BHD)']),
+      paymentTerms:r['Payment Terms']||'',
+      expectedDelivery:formatDate(r['Expected Delivery Date']),
+      daysInStage:_days(dateRaised,stage), remarks:r['Remarks / Blockers']||'',
+      cancellationReason:r['Cancellation Reason']||''
+    };
+  });
 
   DATA.deliveries = toArr('Deliveries').filter(r=>r['LPO Reference']).map((r,i)=>({
     id:'DEL-'+i, lpoRef:r['LPO Reference']||'', deliveryNum:r['Delivery #']||'',
@@ -1078,27 +1390,35 @@ function parseExcel(arrayBuffer){
     customsAllocation:num(r['Customs Allocation (BHD)']), freightAllocation:num(r['Freight Allocation (BHD)'])
   }));
 
-  DATA.intlPurchases = toArr('International Purchases').filter(r=>r['Division']).map((r,i)=>({
-    id:'IP-'+i, division:r['Division']||'', jobCode:r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'', projectName:r['Project Name']||'',
-    prNumber:r['PR Number']||'', item:r['Item Description']||'', requestedBy:r['Requested By']||'',
-    dateRaised:formatDate(r['Date Raised']), category:r['Category']||'', priority:r['Priority']||'Normal',
-    estimatedValue:num(r['Estimated Value (USD)']), stage:r['Current Stage']||'',
-    buyer:r['Assigned Buyer']||'', supplier:r['Supplier Name']||'', country:r['Supplier Country']||'',
-    poNumber:r['PO Number']||'', poValue:num(r['PO Value (USD)']),
-    incoterms:r['Incoterms']||'', paymentTerms:r['Payment Terms']||'',
-    paymentStatus:r['Payment Status']||'', productionStatus:r['Production Status']||'',
-    expectedDelivery:formatDate(r['Expected Delivery Date']),
-    daysInStage:num(r['Days in Current Stage']), remarks:r['Remarks / Blockers']||''
-  }));
+  DATA.intlPurchases = toArr('International Purchases').filter(r=>r['Division']).map((r,i)=>{
+    const stage=(r['Current Stage']||'').trim();
+    const dateRaised=formatDate(r['Date Raised']);
+    const jobCode=r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'';
+    return {
+      id:'IP-'+i, division:r['Division']||'', jobCode, projectName:_pcName(jobCode),
+      prNumber:r['PR Number']||'', item:r['Item Description']||'', requestedBy:r['Requested By']||'',
+      dateRaised, category:r['Category']||'', priority:r['Priority']||'Normal',
+      estimatedValue:num(r['Estimated Value (USD)']), stage,
+      buyer:r['Assigned Buyer']||'', supplier:r['Supplier Name']||'', country:r['Supplier Country']||'',
+      poNumber:r['PO Number']||'', poValue:num(r['PO Value (USD)']),
+      incoterms:r['Incoterms']||'', paymentTerms:r['Payment Terms']||'',
+      paymentStatus:r['Payment Status']||'', productionStatus:r['Production Status']||'',
+      expectedDelivery:formatDate(r['Expected Delivery Date']),
+      daysInStage:_days(dateRaised,stage), remarks:r['Remarks / Blockers']||''
+    };
+  });
 
   DATA.shipments = toArr('Shipments Tracker',1).filter(r=>r['Division']).map((r,i)=>{
     const customsDuty=num(r['Customs Duty (BHD)']),vat=num(r['VAT (BHD)'])||num(r['VAT 10% (BHD)']),
           doCharges=num(r['DO Charges (BHD)']),freight=num(r['Freight Charges (BHD)']),
           thc=num(r['Handling / THC (BHD)']),demurrage=num(r['Demurrage / Detention (BHD)']),
           otherCharges=num(r['Other Charges (BHD)']);
-    const totalClearing=num(r['Total Clearing Cost (BHD)'])||(customsDuty+vat+doCharges+freight+thc+demurrage+otherCharges);
+    const excelTotal=num(r['Total Clearing Cost (BHD)']);
+    // Excel Total Clearing Cost already excludes VAT — use it directly; fall back to component sum
+    const totalClearing=excelTotal>0?excelTotal:(customsDuty+doCharges+freight+thc+demurrage+otherCharges);
+    const jobCode=r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'';
     return {
-      id:'SH-'+i, division:r['Division']||'', jobCode:r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'', projectName:r['Project Name']||'',
+      id:'SH-'+i, division:r['Division']||'', jobCode, projectName:_pcName(jobCode),
       direction:r['Direction']||'Import', poRef:r['PO Reference']||'', supplier:r['Supplier / Consignee']||'',
       country:r['Country']||'', item:r['Item Description']||'', incoterms:r['Incoterms']||'',
       originPort:r['Origin Port / City']||'', destPort:r['Destination Port / City']||'',
@@ -1112,17 +1432,20 @@ function parseExcel(arrayBuffer){
       rerouted:r['Rerouted (Y/N)']||'No',rerouteReason:r['Reroute Reason']||'',reroutedTo:r['Rerouted To (Port/City)']||'',
       customsBroker:r['Customs Broker']||'',customsStatus:r['Customs Status']||'',
       cargoValue:num(r['Cargo Value (BHD)']),customsDuty,vat,doCharges,freight,thc,demurrage,otherCharges,totalClearing,
-      daysSinceETD:num(r['Days Since ETD']),remarks:r['Remarks / Delays']||''
+      daysSinceETD:_daysSinceDate(formatDate(r['ETD'])),remarks:r['Remarks / Delays']||''
     };
   });
 
-  DATA.escalations = toArr('Escalations & Blockers').filter(r=>r['Division']).map((r,i)=>({
-    id:'ESC-'+i, division:r['Division']||'', jobCode:r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'', projectName:r['Project Name']||'',
-    reference:r['Reference (PR/PO/Shipment)']||'', type:r['Type']||'',
-    description:r['Description of Issue']||'', impact:r['Impact Level']||'',
-    owner:r['Owner / Responsible']||'', actionRequired:r['Action Required']||'',
-    targetDate:formatDate(r['Target Resolution Date']), status:r['Status']||''
-  }));
+  DATA.escalations = toArr('Escalations & Blockers').filter(r=>r['Division']).map((r,i)=>{
+    const jobCode=r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'';
+    return {
+      id:'ESC-'+i, division:r['Division']||'', jobCode, projectName:_pcName(jobCode),
+      reference:r['Reference (PR/PO/Shipment)']||'', type:r['Type']||'',
+      description:r['Description of Issue']||'', impact:r['Impact Level']||'',
+      owner:r['Owner / Responsible']||'', actionRequired:r['Action Required']||'',
+      targetDate:formatDate(r['Target Resolution Date']), status:r['Status']||''
+    };
+  });
 }
 
 function num(v){return typeof v==='number'?v:parseFloat(v)||0;}
@@ -1466,12 +1789,14 @@ function renderShipmentMiniCharts(sh, lvl, prefix){
 // ═══════════════════════════════════════════════
 // OVERVIEW
 // ═══════════════════════════════════════════════
-function renderOverview(lp,ip,sh,es,isCon){
+function renderOverview(lp,ip,sh,es,isCon,lpAll,ipAll){
+  lpAll=lpAll||lp; ipAll=ipAll||ip;
   const INACTIVE=['Closed / Completed','Cancelled'];
   const activeL=lp.filter(d=>!INACTIVE.includes(d.stage));
   const activeI=ip.filter(d=>!INACTIVE.includes(d.stage));
-  const closedL=lp.filter(d=>d.stage==='Closed / Completed');
-  const closedI=ip.filter(d=>d.stage==='Closed / Completed');
+  // Use all-time (non-date-filtered) data for closed counts so date filter doesn't zero them out
+  const closedL=lpAll.filter(d=>d.stage&&d.stage.trim()==='Closed / Completed');
+  const closedI=ipAll.filter(d=>d.stage&&d.stage.trim()==='Closed / Completed');
   const agingL=activeL.filter(d=>d.daysInStage>7);
   const agingI=activeI.filter(d=>d.daysInStage>14);
   const activeLVal=activeL.reduce((s,d)=>s+(d.poValue||d.estimatedValue||0),0);
@@ -1509,7 +1834,7 @@ function renderOverview(lp,ip,sh,es,isCon){
   if(lvl>=4) h+=metricCard('📦','Total Containers',totalCont,'#0891b2',contSub);
   h+=metricCard('🚨','Delayed',delayed.length,'#b83232',rerouted.length+' rerouted');
   h+=metricCard('⚠️','Open Escalations',openEsc.length,'#d4891a',critEsc.length+' critical');
-  if(lvl>=4) h+=metricCard('🧾','Total Clearing (BHD)',fmtNum(totalClearing),'#c0612e','Duty: '+fmtNum(totalDuty)+' | VAT: '+fmtNum(totalVat)+' | DO: '+fmtNum(totalDO));
+  if(lvl>=4) h+=metricCard('🧾','Total Clearing (BHD)',fmtNum(totalClearing),'#c0612e','Duty: '+fmtNum(totalDuty)+' | DO: '+fmtNum(totalDO)+' | VAT(CF): '+fmtNum(totalVat));
   h+='</div>';
 
   // Charts row — level 3+ (financial data, auth matrix)
@@ -1563,8 +1888,8 @@ function renderOverview(lp,ip,sh,es,isCon){
   }
   }
 
-  h+='<div class="section-title">Local Purchases Pipeline</div>'+pipelineBar(LOCAL_STAGES,lp,'stage');
-  h+='<div class="section-title">International Purchases Pipeline</div>'+pipelineBar(INTL_STAGES,ip,'stage');
+  h+='<div class="section-title">Local Purchases Pipeline</div>'+pipelineBar(LOCAL_STAGES,lpAll,'stage');
+  h+='<div class="section-title">International Purchases Pipeline</div>'+pipelineBar(INTL_STAGES,ipAll,'stage');
 
   // Division breakdown (consolidated)
   if(isCon){
@@ -1768,18 +2093,38 @@ function renderShipments(shAll,shipF,isCon){
   const totalCont=shAll.reduce((s,d)=>s+d.cnt20+d.cnt40+d.cnt40hc,0);
   const contSub=shAll.reduce((s,d)=>s+d.cnt20,0)+' x 20ft, '+shAll.reduce((s,d)=>s+d.cnt40,0)+' x 40ft, '+shAll.reduce((s,d)=>s+d.cnt40hc,0)+' x 40HC';
   const totalClearing=shAll.reduce((s,d)=>s+(d.totalClearing||0),0);
+  const totalVatSh=shAll.reduce((s,d)=>s+(d.vat||0),0);
+  const totalDutySh=shAll.reduce((s,d)=>s+(d.customsDuty||0),0);
   const delayReasons=[...new Set(delayed.map(s=>s.delayReason).filter(Boolean))].sort();
 
   window._pendingMapShipments=shAll;
   const lvlS=userLevel();
-  let h='<div id="shipmentsMapWrap" style="margin-bottom:18px;"><div id="mapDebug" style="display:none;font-size:12px;color:#94a3b8;padding:6px 10px;background:rgba(0,0,0,0.3);border-radius:6px;margin-bottom:8px;"></div><div id="shipmentsMap" style="height:360px;min-height:360px;width:100%;border-radius:10px;border:1px solid var(--border-color);display:block;"></div><div id="vesselPanel" style="display:none;margin-top:12px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;overflow:hidden;"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border-color);"><span id="vesselPanelTitle" style="font-weight:600;font-size:14px;"></span><button onclick="closeVesselPanel()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-muted);">✕</button></div><iframe id="vesselIframe" style="width:100%;height:400px;border:none;display:block;" loading="lazy"></iframe><div id="vesselDetails" style="padding:12px 14px;line-height:1.8;border-top:1px solid var(--border-color);"></div></div></div>';
+  let h='<div id="shipmentsMapWrap" style="margin-bottom:18px;">'
+    +'<div id="mapStatsBar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 14px;background:rgba(8,14,26,0.7);border:1px solid #1a2f46;border-radius:10px 10px 0 0;border-bottom:none;min-height:46px"></div>'
+    +'<div id="mapModeTabs" style="display:flex;border-left:1px solid #1a2f46;border-right:1px solid #1a2f46;background:#050b14;overflow:hidden;"></div>'
+    +'<div id="mapPanel-sea" style="display:none"><div id="map-sea" style="height:400px;width:100%;border-radius:0 0 10px 10px;border:1px solid #1a2f46;border-top:none;"></div></div>'
+    +'<div id="mapPanel-air" style="display:none"><div id="map-air" style="height:400px;width:100%;border-radius:0 0 10px 10px;border:1px solid #1a2f46;border-top:none;"></div></div>'
+    +'<div id="mapPanel-road" style="display:none"><div id="map-road" style="height:400px;width:100%;border-radius:0 0 10px 10px;border:1px solid #1a2f46;border-top:none;"></div></div>'
+    +'<div id="vesselPanel" style="display:none;margin-top:14px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;overflow:hidden;">'
+      +'<div id="vesselPanelHeader" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border-color);">'
+        +'<div style="display:flex;flex-direction:column;gap:2px">'
+          +'<span id="vesselPanelTitle" style="font-weight:700;font-size:14px;color:var(--text-primary)"></span>'
+          +'<span id="vesselPanelSub" style="font-size:11px;color:var(--text-muted)"></span>'
+        +'</div>'
+        +'<button onclick="closeVesselPanel()" style="background:rgba(255,255,255,0.06);border:1px solid #1a2f46;cursor:pointer;font-size:14px;color:var(--text-muted);width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center">✕</button>'
+      +'</div>'
+      +'<div id="vesselProgress" style="height:4px;background:#1a2f46;position:relative"><div id="vesselProgressBar" style="height:100%;border-radius:0;background:#3b82f6;transition:width 0.4s ease"></div></div>'
+      +'<iframe id="vesselIframe" style="width:100%;height:400px;border:none;display:block;" loading="lazy"></iframe>'
+      +'<div id="vesselDetails" style="padding:14px 16px;line-height:1.8;border-top:1px solid var(--border-color);"></div>'
+    +'</div>'
+    +'</div>';
   h+='<div class="grid grid-6">'+
     metricCard('🚢','Total Shipments',shAll.length,'#0d9e80',impSh.length+' imp, '+expSh.length+' exp')+
     (lvlS>=4?metricCard('📦','Containers',totalCont,'#0891b2',contSub):'')+
     metricCard('⏳','In Transit',shipF.filter(d=>['Loaded / Departed','In Transit','Transshipment'].includes(d.status)).length,'#2d6fd4')+
     metricCard('🚨','Delayed',delayed.length,'#b83232')+
     metricCard('🔄','Rerouted',rerouted.length,'#d4891a')+
-    (lvlS>=4?metricCard('💰','Total Clearing (BHD)',fmtNum(totalClearing),'#c0612e'):'')+
+    (lvlS>=4?metricCard('💰','Total Clearing (BHD)',fmtNum(totalClearing),'#c0612e','Duty: '+fmtNum(totalDutySh)+' | VAT(CF): '+fmtNum(totalVatSh)):'')+
     '</div>';
 
   // Charts
@@ -2027,7 +2372,9 @@ function renderContent(){
   const isCon=activeDivision==='Consolidated View';
   const del=filterByDiv(DATA.deliveries);
   let html='';
-  if(activeTab==='overview') html=renderOverview(lp,ip,sh,es,isCon);
+  const lpAll=filterByProj(filterByDiv(DATA.localPurchases));
+  const ipAll=filterByProj(filterByDiv(DATA.intlPurchases));
+  if(activeTab==='overview') html=renderOverview(lp,ip,sh,es,isCon,lpAll,ipAll);
   else if(activeTab==='local') html=renderLocal(lp,sh,isCon);
   else if(activeTab==='international') html=renderIntl(ip,sh,isCon);
   else if(activeTab==='shipments') html=renderShipments(sh,shipF,isCon);
