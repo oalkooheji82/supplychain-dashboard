@@ -156,6 +156,7 @@ select{padding:5px 10px;border-radius:6px;border:1px solid var(--border-color);b
 .tier-director{background:#3b82f622;color:#3b82f6;border:1px solid #3b82f644}
 .tier-manager{background:#06b6d422;color:#06b6d4;border:1px solid #06b6d444}
 .tier-officer{background:#10b98122;color:#10b981;border:1px solid #10b98144}
+.tier-sc_officer{background:#0ea5e922;color:#0ea5e9;border:1px solid #0ea5e944}
 .access-banner{padding:8px 28px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border-color)}
 .logout-btn{padding:6px 14px;border-radius:6px;border:1px solid #1a2f46;cursor:pointer;font-size:11px;background:transparent;color:#5c7898;font-weight:600}
 .logout-btn:hover{color:#f08080;border-color:#b8323244}
@@ -2399,7 +2400,8 @@ function clearShipFilters(){shipDirFilter='All';shipIncFilter='All';delayFilter=
 // ═══════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════
-const TIER_LABELS={admin:'Admin',ceo:'CEO',gm:'General Manager',director:'Director',manager:'Manager',officer:'Officer'};
+const TIER_LABELS={admin:'Admin',ceo:'CEO',gm:'General Manager',sc_officer:'SC Officer',director:'Director',manager:'Manager',officer:'Officer'};
+const UPLOAD_TIERS=new Set(['admin','sc_officer']);
 const TIER_LEVEL={admin:5,ceo:5,gm:4,director:3,manager:2,officer:1};
 function userLevel(){return currentUser?TIER_LEVEL[currentUser.tier]||1:0;}
 
@@ -2790,20 +2792,21 @@ async function openDocsModal(docType,reference){
         <button onclick="document.getElementById('docsModal').remove()" style="background:none;border:none;color:#5c7898;font-size:18px;cursor:pointer">✕</button>
       </div>
       <div id="docsFileList" style="min-height:60px;margin-bottom:16px"><div style="color:var(--text-muted);font-size:13px">Loading…</div></div>
+      ${UPLOAD_TIERS.has(currentUser?.tier)?`
       <div style="border-top:1px solid var(--border-color);padding-top:14px">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Upload New Document</div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Upload Documents</div>
         <div id="docsDropZone" style="border:2px dashed var(--border-color);border-radius:10px;padding:20px;text-align:center;cursor:pointer"
           ondragover="event.preventDefault();this.style.borderColor='#2d6fd4'"
           ondragleave="this.style.borderColor=''"
           ondrop="_handleDocDrop(event,'${docType}','${escAttr(reference)}')">
-          <div style="font-size:13px;color:var(--text-muted)">Drag & drop file here, or</div>
-          <button onclick="document.getElementById('docsFileInput').click()" style="margin-top:8px;background:#2d6fd4;color:#fff;border:none;border-radius:8px;padding:7px 18px;cursor:pointer;font-size:13px;font-weight:600">Choose File</button>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">PDF, Excel, Word, JPG, PNG — max 10 MB</div>
+          <div style="font-size:13px;color:var(--text-muted)">Drag & drop files here, or</div>
+          <button onclick="document.getElementById('docsFileInput').click()" style="margin-top:8px;background:#2d6fd4;color:#fff;border:none;border-radius:8px;padding:7px 18px;cursor:pointer;font-size:13px;font-weight:600">Choose Files</button>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">PDF, Excel, Word, JPG, PNG — max 10 MB each · multiple files supported</div>
         </div>
-        <input type="file" id="docsFileInput" accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png" style="display:none"
+        <input type="file" id="docsFileInput" accept=".pdf,.xlsx,.xls,.doc,.docx,.jpg,.jpeg,.png" style="display:none" multiple
           onchange="_handleDocFileInput(event,'${docType}','${escAttr(reference)}')">
         <div id="docsUploadStatus" style="margin-top:10px;font-size:13px;display:none"></div>
-      </div>
+      </div>`:'<div style="border-top:1px solid var(--border-color);padding-top:12px;font-size:12px;color:var(--text-muted)">🔒 View only — Supply Chain Officers can upload documents.</div>'}
     </div>`;
   document.body.appendChild(modal);
   await _refreshDocsList(docType,reference);
@@ -2824,7 +2827,7 @@ async function _refreshDocsList(docType,reference){
           <div style="font-size:11px;color:var(--text-muted)">${_fmtBytes(f.size)} · ${(f.uploaded||'').slice(0,10)}</div>
         </div>
         <a href="${esc(f.url)}" target="_blank" style="background:#2d6fd422;border:1px solid #2d6fd466;color:#6ea8e8;border-radius:6px;padding:4px 10px;text-decoration:none;font-size:12px;white-space:nowrap">⬇ View</a>
-        ${userLevel()>=2?`<button onclick="_deleteDoc('${docType}','${escAttr(reference)}','${escAttr(f.item_id)}','${escAttr(f.name)}')" style="background:#b8323222;border:1px solid #b8323266;color:#f08080;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px">🗑</button>`:''}
+        ${UPLOAD_TIERS.has(currentUser?.tier)?`<button onclick="_deleteDoc('${docType}','${escAttr(reference)}','${escAttr(f.item_id)}','${escAttr(f.name)}')" style="background:#b8323222;border:1px solid #b8323266;color:#f08080;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px">🗑</button>`:''}
       </div>`).join('');
   }catch(e){el.innerHTML=`<div style="color:#f08080;font-size:13px">Could not load: ${esc(e.message)}</div>`;}
 }
@@ -2850,8 +2853,12 @@ async function _uploadDoc(docType,reference,file){
   }catch(e){st.style.color='#f08080';st.textContent=`❌ ${e.message}`;}
 }
 
-function _handleDocFileInput(event,docType,reference){const f=event.target.files[0];if(f)_uploadDoc(docType,reference,f);event.target.value='';}
-function _handleDocDrop(event,docType,reference){event.preventDefault();document.getElementById('docsDropZone').style.borderColor='';const f=event.dataTransfer.files[0];if(f)_uploadDoc(docType,reference,f);}
+function _handleDocFileInput(event,docType,reference){const files=[...event.target.files];if(files.length)_uploadDocs(docType,reference,files);event.target.value='';}
+function _handleDocDrop(event,docType,reference){event.preventDefault();document.getElementById('docsDropZone').style.borderColor='';const files=[...event.dataTransfer.files];if(files.length)_uploadDocs(docType,reference,files);}
+
+async function _uploadDocs(docType,reference,files){
+  for(const file of files) await _uploadDoc(docType,reference,file);
+}
 
 async function _deleteDoc(docType,reference,itemId,name){
   if(!confirm(`Delete "${name}"?`))return;
@@ -3016,17 +3023,19 @@ function renderAuditTab(entries){
 }
 
 function renderAccessMatrix(){
-  const tiers=['officer','manager','director','gm','admin'];
+  const tiers=['officer','manager','director','sc_officer','gm','admin'];
   const modules=[
-    {name:'Purchases — Costs & Pricing',levels:[0,0,1,1,1]},
-    {name:'Purchases — Vendor Details',levels:[0,0,1,1,1]},
-    {name:'Purchases — Stage & Status',levels:[0,1,1,1,1]},
-    {name:'Shipments — Transit & ETA',levels:[1,1,1,1,1]},
-    {name:'Shipments — Costs & Freight',levels:[0,0,1,1,1]},
-    {name:'Shipments — Customs & Duties',levels:[0,0,0,1,1]},
-    {name:'Escalations — All Fields',levels:[1,1,1,1,1]},
-    {name:'Deliveries — All Fields',levels:[1,1,1,1,1]},
-    {name:'Admin Panel',levels:[0,0,0,0,1]},
+    {name:'Purchases — Stage & Status',       levels:[0,1,1,1,1,1]},
+    {name:'Purchases — Costs & Pricing',      levels:[0,0,1,1,1,1]},
+    {name:'Purchases — Vendor Details',       levels:[0,0,1,1,1,1]},
+    {name:'Shipments — Transit & ETA',        levels:[1,1,1,1,1,1]},
+    {name:'Shipments — Costs & Freight',      levels:[0,0,1,1,1,1]},
+    {name:'Shipments — Customs & Duties',     levels:[0,0,0,1,1,1]},
+    {name:'Escalations — All Fields',         levels:[1,1,1,1,1,1]},
+    {name:'Deliveries — All Fields',          levels:[1,1,1,1,1,1]},
+    {name:'📎 Upload Documents',             levels:[0,0,0,1,0,1]},
+    {name:'🗑 Delete Documents',             levels:[0,0,0,1,0,1]},
+    {name:'Admin Panel',                      levels:[0,0,0,0,0,1]},
   ];
   const headers=tiers.map(t=>`<th style="text-align:center"><span class="tier-badge tier-${t}">${TIER_LABELS[t]}</span></th>`).join('');
   const rows=modules.map(m=>`<tr><td style="font-size:12px;font-weight:600">${m.name}</td>${m.levels.map(l=>`<td style="text-align:center">${l?'<span style="color:#10b981;font-size:16px">✓</span>':'<span style="color:#b83232;font-size:16px">✗</span>'}</td>`).join('')}</tr>`).join('');
@@ -3049,7 +3058,7 @@ function tabChecks(name,selected=[]){
 }
 
 function showAddUserModal(){
-  const TIER_OPTS=['ceo','gm','director','manager','officer'];
+  const TIER_OPTS=['ceo','gm','sc_officer','director','manager','officer'];
   const divChecks=DIVISIONS.filter(d=>d!=='Consolidated View').map(d=>`<label class="div-check"><input type="checkbox" value="${esc(d)}" name="newDiv"> ${esc(d)}</label>`).join('');
   const html=`<div class="modal-overlay" id="addUserModal" onclick="if(event.target===this)this.remove()">
     <div class="modal-card">
@@ -3114,7 +3123,7 @@ async function submitResetPw(username){
 function showEditUserModal(username){
   const u=adminUsers.find(x=>x.username===username);
   if(!u){alert('User not found.');return;}
-  const TIER_OPTS=['ceo','gm','director','manager','officer','admin'];
+  const TIER_OPTS=['ceo','gm','sc_officer','director','manager','officer','admin'];
   const divChecks=DIVISIONS.filter(d=>d!=='Consolidated View').map(d=>`<label class="div-check"><input type="checkbox" value="${esc(d)}" name="editDiv"${(u.divisions||[]).includes(d)?' checked':''}> ${esc(d)}</label>`).join('');
   const html=`<div class="modal-overlay" id="editUserModal" onclick="if(event.target===this)this.remove()">
     <div class="modal-card">
