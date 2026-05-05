@@ -1804,9 +1804,9 @@ function renderOverview(lp,ip,sh,es,isCon,lpAll,ipAll){
   const activeIVal=activeI.reduce((s,d)=>s+(d.poValue||d.estimatedValue||0),0);
   const closedLVal=closedL.reduce((s,d)=>s+(d.poValue||d.estimatedValue||0),0);
   const closedIVal=closedI.reduce((s,d)=>s+(d.poValue||d.estimatedValue||0),0);
-  const activeSh=sh.filter(d=>d.status!=='Delivered');
-  const impSh=sh.filter(s=>s.direction==='Import');
-  const expSh=sh.filter(s=>s.direction==='Export');
+  const activeSh=sh.filter(d=>!_isHidden(d));
+  const impSh=activeSh.filter(s=>s.direction==='Import');
+  const expSh=activeSh.filter(s=>s.direction==='Export');
   const totalShVal=sh.reduce((s,d)=>s+(d.cargoValue||0),0);
   const totalCont=sh.reduce((s,d)=>s+d.cnt20+d.cnt40+d.cnt40hc,0);
   const contSub=sh.reduce((s,d)=>s+d.cnt20,0)+' x 20ft, '+sh.reduce((s,d)=>s+d.cnt40,0)+' x 40ft, '+sh.reduce((s,d)=>s+d.cnt40hc,0)+' x 40HC';
@@ -1830,7 +1830,7 @@ function renderOverview(lp,ip,sh,es,isCon,lpAll,ipAll){
   h+='</div>';
 
   h+='<div class="section-label">Shipments & Logistics</div><div class="grid grid-6">';
-  h+=metricCard('🚢','Active Shipments',activeSh.length,'#0d9e80',impSh.filter(s=>s.status!=='Delivered').length+' imp, '+expSh.filter(s=>s.status!=='Delivered').length+' exp');
+  h+=metricCard('🚢','Active Shipments',activeSh.length,'#0d9e80',impSh.length+' imp, '+expSh.length+' exp | '+sh.filter(_isHidden).length+' closed');
   if(lvl>=3) h+=metricCard('💎','Total Shipment Value',fmtNum(totalShVal)+' BHD','#0c7fb8','Import: '+fmtNum(impSh.reduce((s,d)=>s+(d.cargoValue||0),0))+' | Export: '+fmtNum(expSh.reduce((s,d)=>s+(d.cargoValue||0),0)));
   if(lvl>=4) h+=metricCard('📦','Total Containers',totalCont,'#0891b2',contSub);
   h+=metricCard('🚨','Delayed',delayed.length,'#b83232',rerouted.length+' rerouted');
@@ -2119,8 +2119,13 @@ function renderShipments(shAll,shipF,isCon){
       +'<div id="vesselDetails" style="padding:14px 16px;line-height:1.8;border-top:1px solid var(--border-color);"></div>'
     +'</div>'
     +'</div>';
+  const activeShAll=shAll.filter(s=>!_isHidden(s));
+  const closedShAll=shAll.filter(s=>_isHidden(s));
+  const activeImp=activeShAll.filter(s=>s.direction==='Import');
+  const activeExp=activeShAll.filter(s=>s.direction==='Export');
   h+='<div class="grid grid-6">'+
-    metricCard('🚢','Total Shipments',shAll.length,'#0d9e80',impSh.length+' imp, '+expSh.length+' exp')+
+    metricCard('🚢','Active Shipments',activeShAll.length,'#0d9e80',activeImp.length+' imp, '+activeExp.length+' exp')+
+    metricCard('✅','Closed Shipments',closedShAll.length,'#4e6580','')+
     (lvlS>=4?metricCard('📦','Containers',totalCont,'#0891b2',contSub):'')+
     metricCard('⏳','In Transit',shipF.filter(d=>['Loaded / Departed','In Transit','Transshipment'].includes(d.status)).length,'#2d6fd4')+
     metricCard('🚨','Delayed',delayed.length,'#b83232')+
