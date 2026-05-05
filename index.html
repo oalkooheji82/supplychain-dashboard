@@ -2077,6 +2077,11 @@ function renderIntl(data,sh,isCon){
     {key:'expectedDelivery',label:'Exp. Delivery',type:'string'},
     ...(lvlI>=2?[{key:'daysInStage',label:'Days',type:'number',render:(v,r)=>'<span style="font-weight:700;color:'+(v>14&&r.stage!=='Closed / Completed'?'#b83232':'var(--text-primary)')+'">'+v+'</span>'}]:[]),
     ...(lvlI>=2?[{key:'remarks',label:'Remarks',type:'string'}]:[]),
+    {key:'poNumber',label:'🚢',type:'string',render:(v,r)=>{
+      if(!v) return '';
+      const has=DATA.shipments.some(s=>s.poRef&&s.poRef.trim()===v.trim());
+      return has?`<button onclick="showIPLinkedShipment('${escAttr(v)}')" style="background:#0d9e8022;border:1px solid #0d9e8066;color:#0d9e80;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:11px;white-space:nowrap">🚢 Shipment</button>`:'';
+    }},
   ];
   h+=dataTable(tabId,cols,data);
   return h;
@@ -2167,7 +2172,11 @@ function renderShipments(shAll,shipF,isCon){
   h+='</div>';
 
   const cols=[
-    ...(lvlS>=3?[{key:'poRef',label:'PO Ref',type:'string'}]:[]),
+    ...(lvlS>=3?[{key:'poRef',label:'PO Ref',type:'string',render:(v)=>{
+      if(!v) return '';
+      const has=DATA.intlPurchases.some(ip=>ip.poNumber&&ip.poNumber.trim()===v.trim());
+      return esc(v)+(has?` <button onclick="showShipmentLinkedIP('${escAttr(v)}')" style="background:#6148c522;border:1px solid #6148c566;color:#9b78e8;border-radius:6px;padding:1px 6px;cursor:pointer;font-size:10px;margin-left:4px">🛒</button>`:'');
+    }}]:[]),
     {key:'direction',label:'Dir',type:'string',render:v=>dirBadge(v)},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
     ...(lvlS>=3?[{key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)}]:[]),
@@ -2701,6 +2710,61 @@ function showShipmentItemsModal(blAwb){
     }
   }
   _showDrillModal(title,body);
+}
+
+function showIPLinkedShipment(poNumber){
+  const matched=DATA.shipments.filter(s=>s.poRef&&s.poRef.trim()===poNumber.trim());
+  if(!matched.length){_showDrillModal('🚢 Linked Shipment — PO '+esc(poNumber),'<p style="color:var(--text-muted);padding:12px 0">No shipment found with PO Reference: <b>'+esc(poNumber)+'</b><br><small>The team may not have entered the PO number in the Shipments Tracker yet.</small></p>');return;}
+  let body='';
+  matched.forEach(sh=>{
+    const stC=_isHidden(sh)?'#4e6580':sh.status.toLowerCase().includes('delay')?'#b83232':'#0d9e80';
+    body+=`<div style="background:var(--bg-tertiary);border-radius:10px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border-color)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-weight:700;font-size:14px">${esc(sh.item||'—')}</span>
+        <span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;background:${stC}22;color:${stC}">${esc(sh.status||'—')}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:12px;line-height:1.8">
+        <span><span style="color:var(--text-muted)">BL/AWB:</span> <b>${esc(sh.blAwb||'—')}</b></span>
+        <span><span style="color:var(--text-muted)">Mode:</span> ${esc(sh.mode||'—')}</span>
+        <span><span style="color:var(--text-muted)">Carrier:</span> ${esc(sh.carrier||'—')}</span>
+        <span><span style="color:var(--text-muted)">Origin:</span> ${esc(sh.originPort||sh.country||'—')}</span>
+        <span><span style="color:var(--text-muted)">ETD:</span> ${esc(sh.etd||'—')}</span>
+        <span><span style="color:var(--text-muted)">ETA:</span> <b style="color:${sh.eta?'#6ea8e8':'var(--text-primary)'}">${esc(sh.eta||'—')}</b></span>
+        ${sh.customsStatus?`<span><span style="color:var(--text-muted)">Customs:</span> ${esc(sh.customsStatus)}</span>`:''}
+        ${sh.totalClearing?`<span><span style="color:var(--text-muted)">Clearing:</span> BHD ${fmtNum(sh.totalClearing)}</span>`:''}
+        ${sh.delayReason?`<span style="grid-column:1/-1;color:#f08080">⚠️ Delay: ${esc(sh.delayReason)}</span>`:''}
+        ${sh.remarks?`<span style="grid-column:1/-1"><span style="color:var(--text-muted)">Remarks:</span> ${esc(sh.remarks)}</span>`:''}
+      </div>
+    </div>`;
+  });
+  _showDrillModal('🚢 Linked Shipment'+(matched.length>1?' ('+matched.length+')'):''+' — PO '+esc(poNumber),body);
+}
+
+function showShipmentLinkedIP(poRef){
+  const matched=DATA.intlPurchases.filter(ip=>ip.poNumber&&ip.poNumber.trim()===poRef.trim());
+  if(!matched.length){_showDrillModal('🛒 Source Purchase — PO '+esc(poRef),'<p style="color:var(--text-muted);padding:12px 0">No international purchase found with PO Number: <b>'+esc(poRef)+'</b></p>');return;}
+  let body='';
+  matched.forEach(ip=>{
+    const stC=ip.stage==='Closed / Completed'?'#4e6580':ip.stage==='Cancelled'?'#b83232':'#6148c5';
+    body+=`<div style="background:var(--bg-tertiary);border-radius:10px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border-color)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-weight:700;font-size:14px">${esc(ip.item||'—')}</span>
+        <span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:12px;background:${stC}22;color:${stC}">${esc(ip.stage||'—')}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:12px;line-height:1.8">
+        <span><span style="color:var(--text-muted)">PR #:</span> ${esc(ip.prNumber||'—')}</span>
+        <span><span style="color:var(--text-muted)">Division:</span> ${esc(ip.division||'—')}</span>
+        <span><span style="color:var(--text-muted)">Supplier:</span> ${esc(ip.supplier||'—')}</span>
+        <span><span style="color:var(--text-muted)">Country:</span> ${esc(ip.country||'—')}</span>
+        <span><span style="color:var(--text-muted)">Value:</span> <b>$${fmtNum(ip.poValue||ip.estimatedValue||0)}</b></span>
+        <span><span style="color:var(--text-muted)">Incoterms:</span> ${esc(ip.incoterms||'—')}</span>
+        <span><span style="color:var(--text-muted)">Payment Status:</span> ${esc(ip.paymentStatus||'—')}</span>
+        <span><span style="color:var(--text-muted)">Exp. Delivery:</span> ${esc(ip.expectedDelivery||'—')}</span>
+        ${ip.remarks?`<span style="grid-column:1/-1"><span style="color:var(--text-muted)">Remarks:</span> ${esc(ip.remarks)}</span>`:''}
+      </div>
+    </div>`;
+  });
+  _showDrillModal('🛒 Source Purchase — PO '+esc(poRef),body);
 }
 
 function _showDrillModal(title,body){
