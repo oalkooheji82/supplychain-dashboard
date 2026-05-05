@@ -204,7 +204,7 @@ select{padding:5px 10px;border-radius:6px;border:1px solid var(--border-color);b
   <div id="authLogin" class="auth-card">
     <div class="auth-logo"><img src="./logo.png" alt="AJM Kooheji" style="height:64px;width:64px;object-fit:contain;border-radius:50%;background:#fff;padding:4px;margin-bottom:8px"><h2>Supply Chain Portal</h2><p>AJM Kooheji Group — Secure Access</p></div>
     <div class="auth-err" id="loginErr"></div>
-    <div class="auth-field"><label>Username</label><input class="auth-input" id="loginUser" type="text" autocomplete="username" placeholder="Enter username"></div>
+    <div class="auth-field"><label>Username</label><input class="auth-input" id="loginUser" type="text" autocomplete="username" placeholder="Enter username" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
     <div class="auth-field"><label>Password</label><input class="auth-input" id="loginPass" type="password" autocomplete="current-password" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="auth-btn" id="loginBtn" onclick="doLogin()">Sign In →</button>
     <div class="auth-footer">🔒 Protected by Two-Factor Authentication</div>
@@ -2619,7 +2619,17 @@ async function doLogout(){
   showAuthScreen('login');
 }
 
-function showAuthErr(el,msg){el.textContent=msg;el.style.display='';}
+function showAuthErr(el,msg){
+  el.textContent=msg;el.style.display='';
+  // Also show as a fixed toast so it's visible even when keyboard is open
+  document.getElementById('authToast')?.remove();
+  const t=document.createElement('div');
+  t.id='authToast';
+  t.textContent=msg;
+  t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#b83232;color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;z-index:9999;max-width:90vw;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.5)';
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),5000);
+}
 
 // ═══════════════════════════════════════════════
 // DRILL-DOWN MODALS
