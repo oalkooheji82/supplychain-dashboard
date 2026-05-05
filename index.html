@@ -2044,14 +2044,15 @@ function openLocalForm(existing){
     )}
     ${_grid(
       _fld('lf_supp','Supplier Name','text',{value:existing?.supplier||''}),
-      _fld('lf_po','PO Number','text',{value:existing?.poNumber||''}),
+      _fld('lf_po','PO Number','text',{value:existing?.poNumber||'',hint:'Enter PO # then tab to check for existing documents'}),
       _fld('lf_poval','PO Value (BHD)','number',{value:existing?.poValue||''}),
       _fld('lf_pt','Payment Terms','select',{options:PAYMENT_TERMS_ALL,value:existing?.paymentTerms||''})
     )}
     ${_grid(
       _fld('lf_exp','Expected Delivery Date','date',{value:existing?.expectedDelivery||''}),
       _fld('lf_rem','Remarks / Blockers','textarea',{value:existing?.remarks||''})
-    )}`;
+    )}
+    <div id="lf_po_hint" style="display:none"></div>`;
   _openFormModal(isEdit?'✏️ Edit Local Purchase':'➕ New Local Purchase',body,async function(){
     const data={
       'Division':_formVal('lf_div'),
@@ -2077,6 +2078,7 @@ function openLocalForm(existing){
     }
     await _submitForm('Local Purchases',data,isEdit?'update':'new',isEdit?existing.prNumber:null);
   });
+  setTimeout(()=>{const el=document.getElementById('lf_po');if(el)el.addEventListener('blur',()=>_checkDocHint('lf_po','po','lf_po_hint'));},100);
 }
 
 // ── International Purchases form ───────────────
@@ -2787,7 +2789,7 @@ function renderProjectBar(){
 function renderTabs(){
   const {es}=getFiltered();
   const openEsc=es.filter(d=>d.status!=='Resolved'&&d.status!=='Closed');
-  const allTabs=[{id:'overview',label:'Overview'},{id:'local',label:'Local Purchases'},{id:'international',label:'International'},{id:'shipments',label:'Shipments'},{id:'deliveries',label:'Deliveries'},{id:'escalations',label:'Escalations'},...(currentUser&&currentUser.role==='admin'?[{id:'admin',label:'⚙️ Admin'}]:[]),...(currentUser?[{id:'agent',label:'🤖 AI Agent'}]:[])];
+  const allTabs=[{id:'overview',label:'Overview'},{id:'local',label:'Local Purchases'},{id:'international',label:'International'},{id:'shipments',label:'Shipments'},{id:'deliveries',label:'Deliveries'},{id:'escalations',label:'Escalations'},...(currentUser&&currentUser.role==='admin'?[{id:'kpi',label:'📊 Buyer KPIs'},{id:'admin',label:'⚙️ Admin'}]:[]),...(currentUser?[{id:'agent',label:'🤖 AI Agent'}]:[])];
   const lvlT=userLevel();
   const allowedTabs=currentUser&&lvlT<=2&&currentUser.tabs&&currentUser.tabs.length?new Set([...currentUser.tabs,'agent',...(currentUser.role==='admin'?['admin']:[])]):null;
   const tabs=allowedTabs?allTabs.filter(t=>allowedTabs.has(t.id)):allTabs;
@@ -2815,10 +2817,179 @@ function renderContent(){
   else if(activeTab==='shipments') html=renderShipments(sh,shipF,isCon);
   else if(activeTab==='deliveries') html=renderDeliveries(del,sh,isCon);
   else if(activeTab==='escalations') html=renderEscalations(es,sh,isCon);
+  else if(activeTab==='kpi') html=renderKPITab();
   else if(activeTab==='admin') html=renderAdminPanel();
   else if(activeTab==='agent') html=renderAgentTab();
   document.getElementById('dashContent').innerHTML=html;
   setTimeout(()=>{initCharts();if(window._pendingMapShipments)renderShipmentsMap(window._pendingMapShipments);},0);
+}
+
+// ═══════════════════════════════════════════════
+// BUYER KPI TAB
+// ═══════════════════════════════════════════════
+
+function _calcBuyerKPIs(){
+  const buyers={};
+  const ensure=name=>{
+    if(!buyers[name])buyers[name]={name,totalLP:0,activeLP:0,closedLP:0,totalIP:0,activeIP:0,closedIP:0,
+      localValue:0,intlValue:0,savingsLocal:0,savingsIntl:0,stalledItems:0,escalations:0,
+      deliveries:0,pendingDeliveries:0,totalDaysLP:0,closedLPCount:0};
+    return buyers[name];
+  };
+  DATA.localPurchases.forEach(r=>{
+    const b=ensure(r.buyer||'Unassigned');
+    b.totalLP++;
+    if(r.stage==='Closed / Completed'){b.closedLP++;b.totalDaysLP+=r.daysInStage||0;b.closedLPCount++;}
+    else if(r.stage!=='Cancelled') b.activeLP++;
+    b.localValue+=(r.poValue||r.estimatedValue||0);
+    const sav=(r.estimatedValue||0)-(r.poValue||0);
+    if(sav>0)b.savingsLocal+=sav;
+    if(r.stage!=='Closed / Completed'&&r.stage!=='Cancelled'&&(r.daysInStage||0)>14)b.stalledItems++;
+  });
+  DATA.intlPurchases.forEach(r=>{
+    const b=ensure(r.buyer||'Unassigned');
+    b.totalIP++;
+    if(r.stage==='Closed / Completed'){b.closedIP++;}
+    else if(r.stage!=='Cancelled') b.activeIP++;
+    b.intlValue+=(r.poValue||r.estimatedValue||0);
+    const sav=(r.estimatedValue||0)-(r.poValue||0);
+    if(sav>0)b.savingsIntl+=sav;
+    if(r.stage!=='Closed / Completed'&&r.stage!=='Cancelled'&&(r.daysInStage||0)>14)b.stalledItems++;
+  });
+  DATA.escalations.forEach(r=>{
+    const b=ensure(r.owner||'Unassigned');
+    b.escalations++;
+  });
+  DATA.deliveries.forEach(r=>{
+    const allLP=[...DATA.localPurchases,...DATA.intlPurchases];
+    const po=allLP.find(p=>p.poNumber===r.lpoRef);
+    const buyer=po?.buyer||'Unassigned';
+    const b=ensure(buyer);
+    b.deliveries++;
+    if(r.status==='Pending'||r.status==='Partial')b.pendingDeliveries++;
+  });
+  return Object.values(buyers).sort((a,b)=>(b.totalLP+b.totalIP)-(a.totalLP+a.totalIP));
+}
+
+let _kpiHistory=null;
+let _kpiHistoryLoaded=false;
+
+async function _loadKPIHistory(){
+  if(_kpiHistoryLoaded)return _kpiHistory;
+  try{const r=await api('/kpi/history');_kpiHistory=r.history||[];_kpiHistoryLoaded=true;}
+  catch(e){_kpiHistory=[];_kpiHistoryLoaded=true;}
+  return _kpiHistory;
+}
+
+async function saveKPISnapshot(){
+  const buyers=_calcBuyerKPIs();
+  const snapshot={date:new Date().toISOString().slice(0,10),buyers:{}};
+  buyers.forEach(b=>{snapshot.buyers[b.name]=b;});
+  try{
+    await api('/kpi/snapshot','POST',{snapshot});
+    _kpiHistoryLoaded=false;
+    const t=document.createElement('div');
+    t.textContent='✅ KPI snapshot saved';
+    t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d9e80;color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.5)';
+    document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
+    setTab('kpi');
+  }catch(e){alert('Snapshot failed: '+e.message);}
+}
+
+function renderKPITab(){
+  const buyers=_calcBuyerKPIs();
+  const fmtPct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
+  const fmtDays=b=>b.closedLPCount?Math.round(b.totalDaysLP/b.closedLPCount)+' days':'—';
+
+  let cards=buyers.map(b=>{
+    const totalPOs=b.totalLP+b.totalIP;
+    const totalClosed=b.closedLP+b.closedIP;
+    const closeRate=fmtPct(totalClosed,totalPOs);
+    const totalSavings=b.savingsLocal+b.savingsIntl;
+    return `
+    <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:14px;padding:18px 20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:1px solid var(--border-color);padding-bottom:10px">
+        <div>
+          <div style="font-weight:700;font-size:15px">${esc(b.name)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${totalPOs} total POs · ${b.activeLP+b.activeIP} active</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:20px;font-weight:700;color:${totalSavings>0?'#0d9e80':'var(--text-muted)'}">${totalSavings>0?'BHD '+fmtNum(totalSavings.toFixed(0)):'-'}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Total savings</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px">
+        <div style="background:var(--bg-tertiary);border-radius:8px;padding:8px 10px;text-align:center">
+          <div style="font-weight:700;font-size:16px;color:#2d6fd4">${b.totalLP}</div>
+          <div style="color:var(--text-muted)">Local POs</div>
+        </div>
+        <div style="background:var(--bg-tertiary);border-radius:8px;padding:8px 10px;text-align:center">
+          <div style="font-weight:700;font-size:16px;color:#6148c5">${b.totalIP}</div>
+          <div style="color:var(--text-muted)">Intl POs</div>
+        </div>
+        <div style="background:var(--bg-tertiary);border-radius:8px;padding:8px 10px;text-align:center">
+          <div style="font-weight:700;font-size:16px;color:#0d9e80">${closeRate}</div>
+          <div style="color:var(--text-muted)">Close Rate</div>
+        </div>
+        <div style="background:var(--bg-tertiary);border-radius:8px;padding:8px 10px;text-align:center">
+          <div style="font-weight:700;font-size:16px;color:#0891b2">${fmtNum(b.localValue.toFixed(0))}</div>
+          <div style="color:var(--text-muted)">Local BHD</div>
+        </div>
+        <div style="background:var(--bg-tertiary);border-radius:8px;padding:8px 10px;text-align:center">
+          <div style="font-weight:700;font-size:16px;color:#8b5cf6">$${fmtNum(b.intlValue.toFixed(0))}</div>
+          <div style="color:var(--text-muted)">Intl USD</div>
+        </div>
+        <div style="background:var(--bg-tertiary);border-radius:8px;padding:8px 10px;text-align:center">
+          <div style="font-weight:700;font-size:16px;color:#d4891a">${fmtDays(b)}</div>
+          <div style="color:var(--text-muted)">Avg to Close</div>
+        </div>
+        ${b.stalledItems>0?`<div style="background:#b8323222;border-radius:8px;padding:8px 10px;text-align:center;grid-column:1/-1">
+          <span style="color:#f08080;font-weight:600">⚠️ ${b.stalledItems} stalled items (>14 days in stage)</span>
+        </div>`:''}
+        ${b.escalations>0?`<div style="background:#d4891a22;border-radius:8px;padding:8px 10px;text-align:center;grid-column:1/-1">
+          <span style="color:#d4891a;font-weight:600">🚨 ${b.escalations} escalations raised</span>
+        </div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div>
+        <div style="font-size:18px;font-weight:700">📊 Buyer Productivity & Savings</div>
+        <div style="font-size:12px;color:var(--text-muted)">Live data from current Excel — save snapshots monthly to track trends</div>
+      </div>
+      <button onclick="saveKPISnapshot()" style="background:#2d6fd4;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:600">💾 Save Snapshot</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-bottom:24px">
+      ${cards||'<div style="color:var(--text-muted);font-size:14px;padding:20px">No buyer data found. Ensure Assigned Buyer is set on purchase records.</div>'}
+    </div>
+    <div id="kpiHistorySection">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div style="font-size:15px;font-weight:700">📅 Historical Snapshots</div>
+        <button onclick="_loadAndRenderHistory()" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-muted);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px">Load History</button>
+      </div>
+      <div id="kpiHistoryContent" style="color:var(--text-muted);font-size:13px">Click "Load History" to see saved snapshots.</div>
+    </div>`;
+}
+
+async function _loadAndRenderHistory(){
+  document.getElementById('kpiHistoryContent').textContent='Loading…';
+  const history=await _loadKPIHistory();
+  if(!history.length){document.getElementById('kpiHistoryContent').textContent='No snapshots saved yet. Use "Save Snapshot" to record the current state.';return;}
+  const dates=history.map(s=>s.date);
+  const allBuyers=[...new Set(history.flatMap(s=>Object.keys(s.buyers||{})))].sort();
+  const colors=['#2d6fd4','#0d9e80','#d4891a','#6148c5','#b83232','#0891b2','#c0612e','#14784a'];
+  const chartData={labels:dates,datasets:allBuyers.map((buyer,i)=>({label:buyer,data:history.map(s=>(s.buyers?.[buyer]?.totalLP||0)+(s.buyers?.[buyer]?.totalIP||0)),borderColor:colors[i%colors.length],backgroundColor:colors[i%colors.length]+'22',tension:0.3,fill:false}))};
+  const savingsData={labels:dates,datasets:allBuyers.map((buyer,i)=>({label:buyer,data:history.map(s=>Math.round(((s.buyers?.[buyer]?.savingsLocal||0)+(s.buyers?.[buyer]?.savingsIntl||0)))),borderColor:colors[i%colors.length],backgroundColor:colors[i%colors.length]+'22',tension:0.3,fill:false}))};
+  document.getElementById('kpiHistoryContent').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="chart-wrap"><div class="chart-title">Total POs per Buyer Over Time</div><div style="height:260px;position:relative"><canvas id="chart-kpi-pos"></canvas></div></div>
+      <div class="chart-wrap"><div class="chart-title">Cumulative Savings (BHD) Over Time</div><div style="height:260px;position:relative"><canvas id="chart-kpi-savings"></canvas></div></div>
+    </div>`;
+  queueChart('chart-kpi-pos',{type:'line',data:chartData,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#dce8f5',font:{size:11}}}},scales:{x:{ticks:{color:'#dce8f5'}},y:{ticks:{color:'#5c7898'},grid:{color:'#1a2f46'}}}}});
+  queueChart('chart-kpi-savings',{type:'line',data:savingsData,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#dce8f5',font:{size:11}}}},scales:{x:{ticks:{color:'#dce8f5'}},y:{ticks:{color:'#5c7898',callback:v=>'BHD '+fmtNum(v)},grid:{color:'#1a2f46'}}}}});
+  setTimeout(initCharts,50);
 }
 
 // ═══════════════════════════════════════════════
@@ -3286,6 +3457,22 @@ async function _uploadDoc(docType,reference,file){
     await _refreshDocsList(docType,reference);
     setTimeout(()=>{if(st)st.style.display='none';},3000);
   }catch(e){st.style.color='#f08080';st.textContent=`❌ ${e.message}`;}
+}
+
+// Check if docs exist for a reference and show inline hint
+async function _checkDocHint(inputId,docType,hintId){
+  const ref=document.getElementById(inputId)?.value?.trim();
+  const hint=document.getElementById(hintId);
+  if(!hint)return;
+  if(!ref){hint.style.display='none';return;}
+  try{
+    const r=await api(`/documents/${docType}/${encodeURIComponent(ref)}`);
+    const n=r.files?.length||0;
+    if(n>0){
+      hint.style.display='';
+      hint.innerHTML=`<span style="color:#0d9e80;font-size:11px">📎 ${n} document${n>1?'s':''} already on file — <button onclick="openDocsModal('${docType}','${escAttr(ref)}')" style="background:none;border:none;color:#0d9e80;text-decoration:underline;cursor:pointer;font-size:11px;padding:0">view them</button> (no re-upload needed)</span>`;
+    }else{hint.style.display='none';}
+  }catch(e){hint.style.display='none';}
 }
 
 function _handleDocFileInput(event,docType,reference){const files=[...event.target.files];if(files.length)_uploadDocs(docType,reference,files);event.target.value='';}
