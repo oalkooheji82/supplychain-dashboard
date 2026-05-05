@@ -2080,7 +2080,8 @@ function renderIntl(data,sh,isCon){
     ...(lvlI>=3?[{key:'poNumber',label:'PO # / Shipment',type:'string',render:(v)=>{
       if(!v) return '';
       const has=DATA.shipments.some(s=>s.poRef&&s.poRef.trim()===v.trim());
-      return esc(v)+(has?` <button onclick="showIPLinkedShipment('${escAttr(v)}')" style="background:#0d9e8022;border:1px solid #0d9e8066;color:#0d9e80;border-radius:6px;padding:2px 6px;cursor:pointer;font-size:10px;white-space:nowrap;margin-left:4px">🚢</button>`:'');
+      const btnC=has?'background:#0d9e8022;border:1px solid #0d9e8066;color:#0d9e80':'background:#1a2f4622;border:1px solid #2a3f5666;color:#4a6a8a';
+      return esc(v)+` <button onclick="showIPLinkedShipment('${escAttr(v)}')" style="${btnC};border-radius:6px;padding:2px 6px;cursor:pointer;font-size:10px;white-space:nowrap;margin-left:4px">${has?'🚢 Linked':'🚢 Check'}</button>`;
     }}]:[]),
   ];
   h+=dataTable(tabId,cols,data);
@@ -2157,7 +2158,8 @@ function renderShipments(shAll,shipF,isCon){
     {key:'poRef',label:'PO Ref',type:'string',render:(v)=>{
       if(!v) return '';
       const has=DATA.intlPurchases.some(ip=>ip.poNumber&&ip.poNumber.trim()===v.trim());
-      return esc(v)+(has?` <button onclick="showShipmentLinkedIP('${escAttr(v)}')" style="background:#6148c522;border:1px solid #6148c566;color:#9b78e8;border-radius:6px;padding:1px 6px;cursor:pointer;font-size:10px;margin-left:4px">🛒</button>`:'');
+      const btnC=has?'background:#6148c522;border:1px solid #6148c566;color:#9b78e8':'background:#1a2f4622;border:1px solid #2a3f5666;color:#4a6a8a';
+      return esc(v)+` <button onclick="showShipmentLinkedIP('${escAttr(v)}')" style="${btnC};border-radius:6px;padding:1px 6px;cursor:pointer;font-size:10px;margin-left:4px">${has?'🛒 Linked':'🛒 Check'}</button>`;
     }},
     {key:'direction',label:'Dir',type:'string',render:v=>dirBadge(v)},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
