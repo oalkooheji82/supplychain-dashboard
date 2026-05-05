@@ -2137,7 +2137,8 @@ async function _submitForm(sheet,data,mode,keyValue){
 function openLocalForm(existing){
   const isEdit=!!existing;
   const buyer=currentUser?.full_name||'';
-  const divisionOpts=DIVISIONS.filter(d=>d!=='Consolidated View');
+  const _allDivs=DIVISIONS.filter(d=>d!=='Consolidated View');
+  const divisionOpts=(!currentUser||currentUser.divisions.includes('all'))?_allDivs:currentUser.divisions.filter(d=>_allDivs.includes(d));
   const projOpts=[''].concat([...new Set(DATA.localPurchases.map(d=>d.jobCode).filter(Boolean))].sort());
   const body=`
     ${_grid(
@@ -2199,7 +2200,8 @@ function openLocalForm(existing){
 function openIntlForm(existing){
   const isEdit=!!existing;
   const buyer=currentUser?.full_name||'';
-  const divisionOpts=DIVISIONS.filter(d=>d!=='Consolidated View');
+  const _allDivs=DIVISIONS.filter(d=>d!=='Consolidated View');
+  const divisionOpts=(!currentUser||currentUser.divisions.includes('all'))?_allDivs:currentUser.divisions.filter(d=>_allDivs.includes(d));
   const projOpts=[''].concat([...new Set(DATA.intlPurchases.map(d=>d.jobCode).filter(Boolean))].sort());
   const body=`
     ${_grid(
@@ -2268,7 +2270,8 @@ function openIntlForm(existing){
 // ── Shipments form ─────────────────────────────
 function openShipmentForm(existing){
   const isEdit=!!existing;
-  const divisionOpts=DIVISIONS.filter(d=>d!=='Consolidated View');
+  const _allDivs=DIVISIONS.filter(d=>d!=='Consolidated View');
+  const divisionOpts=(!currentUser||currentUser.divisions.includes('all'))?_allDivs:currentUser.divisions.filter(d=>_allDivs.includes(d));
   const carriers=['Agility','Air Arabia Cargo','Aramex','Arkas Line','Bahri','CMA CGM','COSCO','CargoCare','DHL Express','ESL Shipping','Emirates SkyCargo','Evergreen','FedEx','Gulf Air Cargo','HMM','Hapag-Lloyd','KMTC','Kuwait Airways Cargo','MSC','Maersk Line','ONE (Ocean Network Express)','OOCL','Other','PIL (Pacific International Lines)','Qatar Airways Cargo','Samudera','TNT','Trailer / Truck','Turkon Line','Wan Hai','Yang Ming','Zim'];
   const body=`
     ${_grid(
@@ -2331,7 +2334,8 @@ function openShipmentForm(existing){
 // ── Escalations form ───────────────────────────
 function openEscalationForm(existing){
   const isEdit=!!existing;
-  const divisionOpts=DIVISIONS.filter(d=>d!=='Consolidated View');
+  const _allDivs=DIVISIONS.filter(d=>d!=='Consolidated View');
+  const divisionOpts=(!currentUser||currentUser.divisions.includes('all'))?_allDivs:currentUser.divisions.filter(d=>_allDivs.includes(d));
   const body=`
     ${_grid(
       _fld('ef_div','Division','select',{options:divisionOpts,value:existing?.division||activeDivision!=='Consolidated View'?activeDivision:'',required:true}),
@@ -3769,6 +3773,7 @@ function renderAccessMatrix(){
     {name:'Shipments — Customs & Duties',     levels:[0,0,0,1,1,1]},
     {name:'Escalations — All Fields',         levels:[1,1,1,1,1,1]},
     {name:'Deliveries — All Fields',          levels:[1,1,1,1,1,1]},
+    {name:'➕ Data Entry (forms)',            levels:[0,0,0,1,0,1]},
     {name:'📎 Upload Documents',             levels:[0,0,0,1,0,1]},
     {name:'🗑 Delete Documents',             levels:[0,0,0,1,0,1]},
     {name:'Admin Panel',                      levels:[0,0,0,0,0,1]},
@@ -3803,8 +3808,9 @@ function showAddUserModal(){
       <div class="form-row"><label>Username</label><input id="nu_user" type="text"></div>
       <div class="form-row"><label>Telegram ID</label><input id="nu_tgid" type="number"></div>
       <div class="form-row"><label>Initial Password</label><input id="nu_pw" type="text" value="Welcome@2026"></div>
-      <div class="form-row"><label>Tier</label><select id="nu_tier">${TIER_OPTS.map(t=>`<option value="${t}">${TIER_LABELS[t]}</option>`).join('')}</select></div>
-      <div class="form-row"><label>Divisions</label><div class="div-checkboxes">${divChecks}</div></div>
+      <div class="form-row"><label>Tier</label><select id="nu_tier" onchange="document.getElementById('nu_div_hint').style.display=this.value==='sc_officer'?'':'none'">${TIER_OPTS.map(t=>`<option value="${t}">${TIER_LABELS[t]}</option>`).join('')}</select></div>
+      <div id="nu_div_hint" style="display:none;background:#0ea5e918;border:1px solid #0ea5e930;border-radius:8px;padding:9px 13px;font-size:12px;color:#38bdf8;margin-bottom:10px">⚠️ SC Officers must be assigned to specific divisions — they will only see and enter data for those divisions.</div>
+      <div class="form-row"><label>Divisions <span style="color:#ef4444;font-size:10px">* required for SC Officer</span></label><div class="div-checkboxes">${divChecks}</div></div>
       <div class="form-row"><label>Tab Access <span style="font-size:11px;color:#5c7898">(Officer &amp; Manager only — Directors+ see all)</span></label><div class="div-checkboxes">${tabChecks('newTab')}</div></div>
       <div style="display:flex;gap:10px;margin-top:20px">
         <button class="btn-sm btn-primary" style="flex:1;padding:10px" onclick="submitAddUser()">Create User</button>
@@ -3866,7 +3872,8 @@ function showEditUserModal(username){
       <div class="modal-title">Edit User — ${esc(u.full_name)}</div>
       <div class="form-row"><label>Full Name</label><input id="eu_name" type="text" value="${esc(u.full_name)}"></div>
       <div class="form-row"><label>Telegram ID <span style="font-size:11px;color:#5c7898">(leave unchanged to keep current)</span></label><input id="eu_tgid" type="number" value="${u.telegram_id||''}" placeholder="${u.telegram_id?'Current: '+u.telegram_id:'Not set'}"></div>
-      <div class="form-row"><label>Tier</label><select id="eu_tier">${TIER_OPTS.map(t=>`<option value="${t}"${u.tier===t?' selected':''}>${TIER_LABELS[t]}</option>`).join('')}</select></div>
+      <div class="form-row"><label>Tier</label><select id="eu_tier" onchange="document.getElementById('eu_div_hint').style.display=this.value==='sc_officer'?'':'none'">${TIER_OPTS.map(t=>`<option value="${t}"${u.tier===t?' selected':''}>${TIER_LABELS[t]}</option>`).join('')}</select></div>
+      <div id="eu_div_hint" style="display:${u.tier==='sc_officer'?'':'none'};background:#0ea5e918;border:1px solid #0ea5e930;border-radius:8px;padding:9px 13px;font-size:12px;color:#38bdf8;margin-bottom:10px">⚠️ SC Officers only see and enter data for their assigned divisions.</div>
       <div class="form-row"><label>Divisions</label><div class="div-checkboxes">${divChecks}</div></div>
       <div class="form-row"><label>Tab Access <span style="font-size:11px;color:#5c7898">(Officer &amp; Manager only — Directors+ see all)</span></label><div class="div-checkboxes">${tabChecks('editTab',u.tabs||[])}</div></div>
       <div style="display:flex;gap:10px;margin-top:20px">
