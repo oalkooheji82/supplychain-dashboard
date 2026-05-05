@@ -2792,7 +2792,7 @@ function showIPLinkedShipment(poNumber){
       </div>
     </div>`;
   });
-  _showDrillModal('🚢 Linked Shipment'+(matched.length>1?' ('+matched.length+')'):''+' — PO '+esc(poNumber),body);
+  _showDrillModal('🚢 Linked Shipment'+(matched.length>1?' ('+matched.length+')':'') + ' — PO '+esc(poNumber),body);
 }
 
 function showShipmentLinkedIP(poRef){
