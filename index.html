@@ -2103,27 +2103,9 @@ function renderShipments(shAll,shipF,isCon){
   const totalDutySh=shAll.reduce((s,d)=>s+(d.customsDuty||0),0);
   const delayReasons=[...new Set(delayed.map(s=>s.delayReason).filter(Boolean))].sort();
 
-  window._pendingMapShipments=shAll;
+  window._pendingMapShipments=null;
   const lvlS=userLevel();
-  let h='<div id="shipmentsMapWrap" style="margin-bottom:18px;">'
-    +'<div id="mapStatsBar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 14px;background:rgba(8,14,26,0.7);border:1px solid #1a2f46;border-radius:10px 10px 0 0;border-bottom:none;min-height:46px"></div>'
-    +'<div id="mapModeTabs" style="display:flex;border-left:1px solid #1a2f46;border-right:1px solid #1a2f46;background:#050b14;overflow:hidden;"></div>'
-    +'<div id="mapPanel-sea" style="display:none"><div id="map-sea" style="height:400px;width:100%;border-radius:0 0 10px 10px;border:1px solid #1a2f46;border-top:none;"></div></div>'
-    +'<div id="mapPanel-air" style="display:none"><div id="map-air" style="height:400px;width:100%;border-radius:0 0 10px 10px;border:1px solid #1a2f46;border-top:none;"></div></div>'
-    +'<div id="mapPanel-road" style="display:none"><div id="map-road" style="height:400px;width:100%;border-radius:0 0 10px 10px;border:1px solid #1a2f46;border-top:none;"></div></div>'
-    +'<div id="vesselPanel" style="display:none;margin-top:14px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;overflow:hidden;">'
-      +'<div id="vesselPanelHeader" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border-color);">'
-        +'<div style="display:flex;flex-direction:column;gap:2px">'
-          +'<span id="vesselPanelTitle" style="font-weight:700;font-size:14px;color:var(--text-primary)"></span>'
-          +'<span id="vesselPanelSub" style="font-size:11px;color:var(--text-muted)"></span>'
-        +'</div>'
-        +'<button onclick="closeVesselPanel()" style="background:rgba(255,255,255,0.06);border:1px solid #1a2f46;cursor:pointer;font-size:14px;color:var(--text-muted);width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center">✕</button>'
-      +'</div>'
-      +'<div id="vesselProgress" style="height:4px;background:#1a2f46;position:relative"><div id="vesselProgressBar" style="height:100%;border-radius:0;background:#3b82f6;transition:width 0.4s ease"></div></div>'
-      +'<iframe id="vesselIframe" style="width:100%;height:400px;border:none;display:block;" loading="lazy"></iframe>'
-      +'<div id="vesselDetails" style="padding:14px 16px;line-height:1.8;border-top:1px solid var(--border-color);"></div>'
-    +'</div>'
-    +'</div>';
+  let h='';
   const activeShAll=shAll.filter(s=>!_isHidden(s));
   const closedShAll=shAll.filter(s=>_isHidden(s));
   const activeImp=activeShAll.filter(s=>s.direction==='Import');
@@ -2189,7 +2171,7 @@ function renderShipments(shAll,shipF,isCon){
     ...(lvlS>=3?[{key:'blAwb',label:'BL/AWB #',type:'string',render:v=>v?`<span style="color:#6ea8e8;cursor:pointer;text-decoration:underline;font-weight:600" onclick="showShipmentItemsModal('${escAttr(v)}')">${esc(v)}</span>`:''}]:[]),
     ...(lvlS>=3?[{key:'originPort',label:'Origin Port',type:'string'}]:[]),
     ...(lvlS>=3?[{key:'destPort',label:'Dest Port',type:'string'}]:[]),
-    ...(lvlS>=3?[{key:'carrier',label:'Carrier',type:'string'}]:[]),
+    ...(lvlS>=3?[{key:'carrier',label:'Carrier',type:'string',render:(v,r)=>v?`<span style="color:#6ea8e8;cursor:pointer;text-decoration:underline" onclick="openCarrierTracking('${escAttr(v)}','${escAttr(r.blAwb||'')}','${escAttr(r.mode||'')}')">${esc(v)}</span>`:'' }]:[]),
     ...(lvlS>=3?[{key:'etd',label:'ETD',type:'string'}]:[]),
     {key:'eta',label:'ETA',type:'string'},
     ...(lvlS>=3?[{key:'daysSinceETD',label:'Days ETD',type:'number',render:v=>v?'<span style="color:'+(v>30?'#b83232':v>14?'#d4891a':'var(--text-primary)')+';font-weight:700">'+v+'</span>':''}]:[]),
@@ -2710,6 +2692,69 @@ function showShipmentItemsModal(blAwb){
     }
   }
   _showDrillModal(title,body);
+}
+
+const CARRIER_URLS={
+  'maersk line':      r=>`https://www.maersk.com/tracking/${r}`,
+  'msc':              r=>`https://www.msc.com/track-a-shipment?agencyPath=eur&trackingNumber=${r}`,
+  'cma cgm':          r=>`https://www.cma-cgm.com/ebusiness/tracking/search?SearchBy=BL&Reference=${r}`,
+  'hapag-lloyd':      r=>`https://www.hapag-lloyd.com/en/online-business/track/track-by-container-solution.html?blno=${r}`,
+  'evergreen':        r=>`https://ct.evergreen-line.com/tms/servlet/EglTmsServlet?FunctionName=InfoBLContent&BLNO=${r}`,
+  'yang ming':        r=>`https://www.yangming.com/e-service/Track_Trace/track_trace_cargo_tracking.aspx?blno=${r}`,
+  'zim':              r=>`https://www.zim.com/tools/track-a-shipment?consnumber=${r}`,
+  'oocl':             r=>`https://www.oocl.com/eng/ourservices/eservices/cargotracking/Pages/cargotracking.aspx?bl=${r}`,
+  'one (ocean network express)': r=>`https://ecomm.one-line.com/ecom/CUP_HOM_3110.do?blNo=${r}`,
+  'cosco':            r=>`https://elines.coscoshipping.com/ebusiness/cargoTracking?trackingType=BOOKING&number=${r}`,
+  'hmm':              r=>`https://www.hmm21.com/cms/business/usa/eServices/tracing/index.jsp?searchType=BL&trackingNumber=${r}`,
+  'arkas line':       r=>`https://www.arkas.com/en/cargo-tracking/?doc_type=BL&doc_no=${r}`,
+  'turkon line':      r=>`https://www.turkon.com/en/container-tracking/?search=${r}`,
+  'kmtc':             r=>`https://www.kmtc.co.kr/eng/tracing/tracing_main.do?blNum=${r}`,
+  'pil (pacific international lines)': r=>`https://www.pilship.com/en-global/track-shipment/${r}`,
+  'wan hai':          r=>`https://www.wanhai.com/views/Service/EServiceEntry.xhtml?bl=${r}`,
+  'bahri':            r=>`https://www.bahri.com/en/tracking/?blNo=${r}`,
+  'samudera':         r=>`https://www.samudera.id/tracking?blno=${r}`,
+  'esl shipping':     r=>`https://www.eslshipping.com/en/Track.aspx?BL=${r}`,
+  'aramex':           r=>`https://www.aramex.com/track/results?ShipmentNumber=${r}`,
+  'dhl express':      r=>`https://www.dhl.com/en/express/tracking.html?AWB=${r}&brand=DHL`,
+  'fedex':            r=>`https://www.fedex.com/fedextrack/?trknbr=${r}`,
+  'tnt':              r=>`https://www.tnt.com/express/en_gb/site/shipping-tools/tracking.html?searchType=CON&cons=${r}`,
+  'air arabia cargo': r=>`https://www.airarabiacargo.com/en/tracking/?awb=${r}`,
+  'emirates skycargo':r=>`https://www.skycargo.com/tracking/?awbno=${r}`,
+  'qatar airways cargo':r=>`https://www.qrcargo.com/s/track-shipment?awbno=${r}`,
+  'gulf air cargo':   r=>`https://www.gulfaircargo.com/en/tracking/?awb=${r}`,
+  'kuwait airways cargo':r=>`https://cargo.kuwaitairways.com/track?awb=${r}`,
+  'agility':          r=>`https://agilitylogistics.com/en/tracking/?trackingNumber=${r}`,
+};
+const UNIVERSAL_TRACKER=r=>`https://www.track-trace.com/bill-of-lading?number=${r}`;
+
+function openCarrierTracking(carrier,blAwb,mode){
+  if(!blAwb){_showDrillModal('Carrier Tracking','<p style="color:var(--text-muted);padding:12px 0">No BL/AWB number entered for this shipment.</p>');return;}
+  const key=(carrier||'').toLowerCase().trim();
+  const urlFn=CARRIER_URLS[key]||UNIVERSAL_TRACKER;
+  const trackUrl=urlFn(encodeURIComponent(blAwb));
+  const isFallback=!CARRIER_URLS[key];
+  const body=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <span style="font-size:13px;color:var(--text-muted)">Carrier: </span><b>${esc(carrier||'Unknown')}</b>
+        &nbsp;&nbsp;<span style="font-size:13px;color:var(--text-muted)">${mode&&mode.toLowerCase().includes('air')?'AWB':'BL'}: </span><b>${esc(blAwb)}</b>
+        ${isFallback?'<span style="font-size:11px;color:#d4891a;margin-left:8px">(universal tracker)</span>':''}
+      </div>
+      <a href="${trackUrl}" target="_blank" style="background:#2d6fd4;color:#fff;padding:6px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;white-space:nowrap">Open in New Tab ↗</a>
+    </div>
+    <iframe src="${trackUrl}" style="width:100%;height:520px;border:1px solid var(--border-color);border-radius:10px;background:#fff" referrerpolicy="no-referrer" loading="lazy"></iframe>
+    <p style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">If the tracking page appears blank, the carrier blocks embedding — use "Open in New Tab" above.</p>`;
+  document.getElementById('drillModal')?.remove();
+  const html=`<div class="modal-overlay" id="drillModal" onclick="if(event.target===this)this.remove()">
+    <div class="modal-card wide" style="max-width:900px;width:95vw">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="modal-title" style="margin-bottom:0">📦 Carrier Tracking — ${esc(carrier||'Unknown')}</div>
+        <button onclick="document.getElementById('drillModal').remove()" style="background:none;border:none;color:#5c7898;font-size:18px;cursor:pointer;line-height:1">✕</button>
+      </div>
+      ${body}
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
 }
 
 function showIPLinkedShipment(poNumber){
