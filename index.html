@@ -1551,7 +1551,8 @@ function parseExcel(arrayBuffer){
       rerouted:r['Rerouted (Y/N)']||'No',rerouteReason:r['Reroute Reason']||'',reroutedTo:r['Rerouted To (Port/City)']||'',
       customsBroker:r['Customs Broker']||'',customsStatus:r['Customs Status']||'',
       cargoValue:num(r['Cargo Value (BHD)']),customsDuty,vat,doCharges,freight,thc,demurrage,otherCharges,totalClearing,
-      daysSinceETD:_daysSinceDate(formatDate(r['ETD'])),remarks:r['Remarks / Delays']||''
+      daysSinceETD:_daysSinceDate(formatDate(r['ETD'])),remarks:r['Remarks / Delays']||'',
+      containerNumbers:(r['Container Numbers']||'').split(',').map(s=>s.trim()).filter(Boolean)
     };
   });
 
@@ -2730,7 +2731,7 @@ function renderShipments(shAll,shipF,isCon){
     ...(lvlS>=3?[{key:'blAwb',label:'BL/AWB #',type:'string',render:v=>v?`<span style="color:#6ea8e8;cursor:pointer;text-decoration:underline;font-weight:600" onclick="showShipmentItemsModal('${escAttr(v)}')">${esc(v)}</span>`+_docBtn('bl-awb',v):''}]:[]),
     ...(lvlS>=3?[{key:'originPort',label:'Origin Port',type:'string'}]:[]),
     ...(lvlS>=3?[{key:'destPort',label:'Dest Port',type:'string'}]:[]),
-    ...(lvlS>=3?[{key:'carrier',label:'Carrier',type:'string',render:(v,r)=>v?`<span style="color:#6ea8e8;cursor:pointer;text-decoration:underline" onclick="openCarrierTracking('${escAttr(v)}','${escAttr(r.blAwb||'')}','${escAttr(r.mode||'')}')">${esc(v)}</span>`:'' }]:[]),
+    ...(lvlS>=3?[{key:'carrier',label:'Carrier',type:'string',render:(v,r)=>v?`<span style="color:#818cf8;cursor:pointer;text-decoration:underline;font-weight:500" onclick="openCarrierTracking('${escAttr(v)}','${escAttr(r.blAwb||'')}','${escAttr(r.mode||'')}','${escAttr((r.containerNumbers||[]).join('|'))}')">${esc(v)}</span>${r.containerNumbers&&r.containerNumbers.length?`<span style="font-size:10px;color:var(--text-muted);margin-left:5px">(${r.containerNumbers.length} cntr)</span>`:''}`:'' }]:[]),
     ...(lvlS>=3?[{key:'etd',label:'ETD',type:'string'}]:[]),
     {key:'eta',label:'ETA',type:'string'},
     ...(lvlS>=3?[{key:'daysSinceETD',label:'Days ETD',type:'number',render:v=>v?'<span style="color:'+(v>30?'#b83232':v>14?'#d4891a':'var(--text-primary)')+';font-weight:700">'+v+'</span>':''}]:[]),
@@ -3468,26 +3469,53 @@ const CARRIER_URLS={
 };
 const UNIVERSAL_TRACKER=r=>`https://www.track-trace.com/bill-of-lading?number=${r}`;
 
-function openCarrierTracking(carrier,blAwb,mode){
-  if(!blAwb){_showDrillModal('Carrier Tracking','<p style="color:var(--text-muted);padding:12px 0">No BL/AWB number entered for this shipment.</p>');return;}
+function openCarrierTracking(carrier,blAwb,mode,containersStr){
+  const containers=(containersStr||'').split('|').map(s=>s.trim()).filter(Boolean);
+  const isAir=mode&&mode.toLowerCase().includes('air');
   const key=(carrier||'').toLowerCase().trim();
   const urlFn=CARRIER_URLS[key]||UNIVERSAL_TRACKER;
-  const trackUrl=urlFn(encodeURIComponent(blAwb));
   const isFallback=!CARRIER_URLS[key];
+
+  // Build tracking reference: prefer BL/AWB, show containers too
+  const hasRef=blAwb||containers.length>0;
+  if(!hasRef){_showDrillModal('Carrier Tracking','<p style="color:var(--text-muted);padding:12px 0">No BL/AWB or container number entered for this shipment.</p>');return;}
+
+  // Primary tracking uses BL/AWB; container buttons open per-container tracking
+  const primaryRef=blAwb||containers[0];
+  const trackUrl=urlFn(encodeURIComponent(primaryRef));
+
+  // Container number buttons
+  const containerBtns=containers.length>0
+    ?`<div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">📦 Container Numbers — click to track individually</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${containers.map(c=>{
+            const cUrl=urlFn(encodeURIComponent(c));
+            return `<div style="display:flex;gap:6px;align-items:center;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:6px 10px">
+              <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--text-primary)">${esc(c)}</span>
+              <a href="${cUrl}" target="_blank" style="font-size:10px;color:var(--accent-light);text-decoration:none;font-weight:600;white-space:nowrap;border-left:1px solid var(--border-color);padding-left:8px">Track ↗</a>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`
+    :'';
+
   const body=`
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="flex:1;min-width:200px">
-        <span style="font-size:13px;color:var(--text-muted)">Carrier: </span><b>${esc(carrier||'Unknown')}</b>
-        &nbsp;&nbsp;<span style="font-size:13px;color:var(--text-muted)">${mode&&mode.toLowerCase().includes('air')?'AWB':'BL'}: </span><b>${esc(blAwb)}</b>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px;font-size:13px">
+        <span style="color:var(--text-muted)">Carrier: </span><b>${esc(carrier||'Unknown')}</b>
+        ${blAwb?`&nbsp;&nbsp;<span style="color:var(--text-muted)">${isAir?'AWB':'BL'}: </span><b style="font-family:monospace">${esc(blAwb)}</b>`:''}
         ${isFallback?'<span style="font-size:11px;color:#d4891a;margin-left:8px">(universal tracker)</span>':''}
       </div>
-      <a href="${trackUrl}" target="_blank" style="background:#2d6fd4;color:#fff;padding:6px 14px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;white-space:nowrap">Open in New Tab ↗</a>
+      <a href="${trackUrl}" target="_blank" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;padding:7px 16px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 2px 8px rgba(99,102,241,0.3)">Open in New Tab ↗</a>
     </div>
-    <iframe src="${trackUrl}" style="width:100%;height:520px;border:1px solid var(--border-color);border-radius:10px;background:#fff" referrerpolicy="no-referrer" loading="lazy"></iframe>
-    <p style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">If the tracking page appears blank, the carrier blocks embedding — use "Open in New Tab" above.</p>`;
+    ${containerBtns}
+    <iframe src="${trackUrl}" style="width:100%;height:480px;border:1px solid var(--border-color);border-radius:10px;background:#fff" referrerpolicy="no-referrer" loading="lazy"></iframe>
+    <p style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">If the tracking page appears blank, the carrier blocks embedding — use "Open in New Tab ↗" or the individual container track buttons above.</p>`;
+
   document.getElementById('drillModal')?.remove();
   const html=`<div class="modal-overlay" id="drillModal" onclick="if(event.target===this)this.remove()">
-    <div class="modal-card wide" style="max-width:900px;width:95vw">
+    <div class="modal-card wide" style="max-width:920px;width:95vw">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <div class="modal-title" style="margin-bottom:0">📦 Carrier Tracking — ${esc(carrier||'Unknown')}</div>
         <button onclick="document.getElementById('drillModal').remove()" style="background:none;border:none;color:#5c7898;font-size:18px;cursor:pointer;line-height:1">✕</button>
