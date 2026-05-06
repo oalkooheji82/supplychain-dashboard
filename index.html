@@ -3748,91 +3748,153 @@ const CARRIER_URLS={
   'kuwait airways cargo':r=>`https://cargo.kuwaitairways.com/track?awb=${r}`,
   'agility':          r=>`https://agilitylogistics.com/en/tracking/?trackingNumber=${r}`,
 };
-// track-trace.com is specifically built for embedding — always works inside iframes
-const TT_BL  = n=>`https://www.track-trace.com/bill-of-lading?number=${encodeURIComponent(n)}`;
-const TT_CNTR= n=>`https://www.track-trace.com/container?number=${encodeURIComponent(n)}`;
-const TT_AIR = n=>`https://www.track-trace.com/aircargo?number=${encodeURIComponent(n)}`;
-const UNIVERSAL_TRACKER=r=>TT_BL(r);
+const UNIVERSAL_TRACKER=r=>`https://www.track-trace.com/bill-of-lading?number=${r}`;
 
-function _trackUrl(ref,isAir,isContainer){
-  if(isContainer) return TT_CNTR(ref);
-  if(isAir) return TT_AIR(ref);
-  return TT_BL(ref);
-}
-
-function _loadTrackFrame(url){
-  const f=document.getElementById('trackFrame');
-  if(f){f.src=url;}
-}
-
-function _setActiveTrackTab(el){
-  document.querySelectorAll('.track-tab').forEach(t=>{
-    t.style.background='transparent';
-    t.style.color='var(--text-muted)';
-    t.style.borderColor='transparent';
-  });
-  el.style.background='var(--accent-dim)';
-  el.style.color='var(--accent-light)';
-  el.style.borderColor='rgba(99,102,241,0.4)';
-}
-
+// ── Carrier Tracking Modal ─────────────────────────────────────────────────
 function openCarrierTracking(carrier,blAwb,mode,containersStr){
   const containers=(containersStr||'').split('|').map(s=>s.trim()).filter(Boolean);
   const isAir=mode&&(mode.toLowerCase().includes('air')||mode.toLowerCase().includes('dhl')||mode.toLowerCase().includes('fedex')||mode.toLowerCase().includes('aramex'));
   const key=(carrier||'').toLowerCase().trim();
-  const directUrlFn=CARRIER_URLS[key]||null;
+  const directUrlFn=CARRIER_URLS[key]||UNIVERSAL_TRACKER;
 
   const hasRef=blAwb||containers.length>0;
   if(!hasRef){
-    _showDrillModal('Carrier Tracking','<p style="color:var(--text-muted);padding:16px 0">No BL/AWB or container numbers entered for this shipment.<br><small>Enter them in the Excel or via the New Entry form.</small></p>');
+    _showDrillModal('Carrier Tracking','<p style="color:var(--text-muted);padding:16px 0">No BL/AWB or container numbers entered.<br><small>Add them in the Shipments entry form or column AU in Excel.</small></p>');
     return;
   }
 
-  // Build tab list — containers first (preferred), then BL
-  const tabs=[];
-  containers.forEach((c,i)=>tabs.push({label:c,url:TT_CNTR(c),type:'container',idx:i}));
-  if(blAwb) tabs.push({label:isAir?`AWB: ${blAwb}`:`BL: ${blAwb}`,url:_trackUrl(blAwb,isAir,false),type:'bl',idx:tabs.length});
+  // Refs to track — containers first, then BL
+  const refs=[];
+  containers.forEach(c=>refs.push({label:c,ref:c,type:'container'}));
+  if(blAwb) refs.push({label:isAir?`AWB: ${blAwb}`:`BL: ${blAwb}`,ref:blAwb,type:isAir?'bl':'bl'});
 
-  const firstUrl=tabs[0].url;
-  const directUrl=directUrlFn?(isAir?directUrlFn(blAwb||containers[0]):directUrlFn(blAwb||containers[0])):null;
+  const directUrl=directUrlFn(encodeURIComponent(blAwb||containers[0]||''));
 
-  const tabHtml=tabs.map((t,i)=>`
-    <button class="track-tab" onclick="_setActiveTrackTab(this);_loadTrackFrame('${t.url}')"
-      style="padding:6px 14px;border-radius:20px;border:1px solid ${i===0?'rgba(99,102,241,0.4)':'transparent'};cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;white-space:nowrap;transition:all 0.15s;background:${i===0?'var(--accent-dim)':'transparent'};color:${i===0?'var(--accent-light)':'var(--text-muted)'}"
-      title="${t.type==='container'?'Container':'BL/AWB'} — opens in track-trace.com">
-      ${t.type==='container'?'📦 ':'📄 '}${esc(t.label)}
-    </button>`).join('');
-
-  const body=`
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="flex:1;font-size:13px">
-        <span style="color:var(--text-muted)">Carrier: </span><b>${esc(carrier||'Unknown')}</b>
-        <span style="font-size:11px;color:var(--text-muted);margin-left:10px">Powered by track-trace.com</span>
-      </div>
-      ${directUrl?`<a href="${directUrl}" target="_blank" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);padding:6px 14px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600;white-space:nowrap">Open ${esc(carrier)} Site ↗</a>`:''}
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding:8px 0;border-bottom:1px solid var(--border-color)">
-      ${tabHtml}
-    </div>
-    <iframe id="trackFrame" src="${firstUrl}"
-      style="width:100%;height:520px;border:1px solid var(--border-color);border-radius:10px;background:#f8f9fa"
-      referrerpolicy="no-referrer" loading="lazy" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation-by-user-activation"></iframe>
-    <p style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">
-      Tracking via track-trace.com — supports all major carriers by container number or BL.
-      Click each tab to switch between containers.
-    </p>`;
+  const tabBtns=refs.map((r,i)=>`<button class="track-tab" data-ref="${escAttr(r.ref)}" data-type="${r.type}"
+    onclick="_trackLoad(this)"
+    style="padding:7px 16px;border-radius:20px;border:1px solid ${i===0?'rgba(99,102,241,0.5)':'var(--border-color)'};cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;white-space:nowrap;transition:all 0.15s;background:${i===0?'var(--accent-dim)':'transparent'};color:${i===0?'var(--accent-light)':'var(--text-muted)'}"
+    >${r.type==='container'?'📦 ':'📄 '}${esc(r.label)}</button>`).join('');
 
   document.getElementById('drillModal')?.remove();
   const html=`<div class="modal-overlay" id="drillModal" onclick="if(event.target===this)this.remove()">
-    <div class="modal-card wide" style="max-width:960px;width:95vw">
+    <div class="modal-card wide" style="max-width:860px;width:95vw">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <div class="modal-title" style="margin-bottom:0">📦 Carrier Tracking — ${esc(carrier||'Unknown')}</div>
-        <button onclick="document.getElementById('drillModal').remove()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;line-height:1">✕</button>
+        <div>
+          <div class="modal-title" style="margin-bottom:2px">📦 Carrier Tracking</div>
+          <div style="font-size:12px;color:var(--text-muted)">${esc(carrier||'Unknown')}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <a href="${directUrl}" target="_blank" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-muted);padding:6px 12px;border-radius:8px;text-decoration:none;font-size:11px;font-weight:600;white-space:nowrap">Open Carrier Site ↗</a>
+          <button onclick="document.getElementById('drillModal').remove()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer">✕</button>
+        </div>
       </div>
-      ${body}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border-color)">
+        ${tabBtns}
+      </div>
+      <div id="trackResult" style="min-height:200px">
+        <div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text-muted)">
+          <div style="text-align:center">
+            <div style="font-size:32px;margin-bottom:8px">⏳</div>
+            <div>Loading tracking data…</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend',html);
+
+  // Load the first tab immediately
+  if(refs.length>0){
+    const firstBtn=document.querySelector('.track-tab');
+    if(firstBtn) _trackLoad(firstBtn);
+  }
+}
+
+function _setActiveTrackTab(el){
+  document.querySelectorAll('.track-tab').forEach(t=>{
+    t.style.background='transparent';t.style.color='var(--text-muted)';t.style.borderColor='var(--border-color)';
+  });
+  el.style.background='var(--accent-dim)';el.style.color='var(--accent-light)';el.style.borderColor='rgba(99,102,241,0.5)';
+}
+
+async function _trackLoad(btn){
+  _setActiveTrackTab(btn);
+  const ref=btn.dataset.ref;
+  const type=btn.dataset.type;
+  const el=document.getElementById('trackResult');
+  if(!el)return;
+  el.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text-muted)"><div style="text-align:center"><div style="font-size:32px;margin-bottom:8px;animation:spin 1s linear infinite">⏳</div><div>Fetching tracking info for <b>${esc(ref)}</b>…</div></div></div>`;
+  try{
+    const path=type==='container'?`/tracking/container/${encodeURIComponent(ref)}`:`/tracking/bl/${encodeURIComponent(ref)}`;
+    const data=await api(path);
+    el.innerHTML=_renderTrackData(data,ref);
+  }catch(e){
+    el.innerHTML=_renderTrackFallback(ref,btn.dataset.type,e.message);
+  }
+}
+
+function _renderTrackData(d,ref){
+  const statusColor={
+    'delivered':'#10b981','arrived':'#0d9e80','cleared':'#14b8a6',
+    'transit':'#3b82f6','in transit':'#3b82f6','departed':'#6366f1',
+    'delay':'#f59e0b','hold':'#ef4444','unknown':'#52537a'
+  };
+  const st=(d.status||'Unknown').toLowerCase();
+  const stColor=Object.entries(statusColor).find(([k])=>st.includes(k))?.[1]||'#52537a';
+
+  const infoGrid=[
+    d.carrier&&`<div><span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Carrier</span><div style="font-weight:600;margin-top:2px">${esc(d.carrier)}</div></div>`,
+    d.vessel&&`<div><span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Vessel</span><div style="font-weight:600;margin-top:2px">${esc(d.vessel)}</div></div>`,
+    d.voyage&&`<div><span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Voyage</span><div style="font-weight:600;margin-top:2px">${esc(d.voyage)}</div></div>`,
+    d.origin&&`<div><span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Origin</span><div style="font-weight:600;margin-top:2px">${esc(d.origin)}</div></div>`,
+    d.destination&&`<div><span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Destination</span><div style="font-weight:600;margin-top:2px">${esc(d.destination)}</div></div>`,
+    d.eta&&`<div><span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">ETA</span><div style="font-weight:600;margin-top:2px;color:#6366f1">${esc(d.eta)}</div></div>`,
+    d.location&&`<div><span style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Current Location</span><div style="font-weight:600;margin-top:2px">${esc(d.location)}</div></div>`,
+  ].filter(Boolean).join('');
+
+  const eventsHtml=d.events&&d.events.length
+    ?`<div style="margin-top:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Movement History</div>
+        <div style="display:flex;flex-direction:column;gap:0">
+          ${d.events.map((e,i)=>`
+            <div style="display:flex;gap:12px;padding:8px 0;${i<d.events.length-1?'border-bottom:1px solid var(--border-color)':''}">
+              <div style="width:100px;font-size:11px;color:var(--text-muted);flex-shrink:0;padding-top:2px">${esc(e.date||'')}</div>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600">${esc(e.description||'')}</div>
+                ${e.location?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px">📍 ${esc(e.location)}</div>`:''}
+                ${e.vessel?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px">🚢 ${esc(e.vessel)}</div>`:''}
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`
+    :'';
+
+  return `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <div style="font-size:12px;font-family:monospace;font-weight:700;color:var(--text-primary)">${esc(ref)}</div>
+      <span style="padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;background:${stColor}22;color:${stColor};border:1px solid ${stColor}44">${esc(d.status||'Unknown')}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;background:var(--bg-tertiary);border-radius:10px;padding:14px;border:1px solid var(--border-color)">
+      ${infoGrid||'<div style="color:var(--text-muted);font-size:13px">Limited tracking info available for this reference.</div>'}
+    </div>
+    ${eventsHtml}`;
+}
+
+function _renderTrackFallback(ref,type,errMsg){
+  const carrierKey=Object.keys(CARRIER_URLS).find(k=>k.length>2);
+  return `
+    <div style="text-align:center;padding:24px 16px">
+      <div style="font-size:36px;margin-bottom:12px">📡</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:6px">Tracking data unavailable</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px">${esc(errMsg||'Could not fetch tracking for '+ref)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center">
+        <a href="https://www.track-trace.com/${type==='container'?'container':'bill-of-lading'}?number=${encodeURIComponent(ref)}"
+           target="_blank" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;padding:9px 20px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;box-shadow:0 2px 12px rgba(99,102,241,0.3)">
+          🔍 Track ${esc(ref)} on track-trace.com
+        </a>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:12px">Opens in a new tab with full tracking details</div>
+    </div>`;
 }
 
 // ── Document modal ────────────────────────────────────────────────────────
