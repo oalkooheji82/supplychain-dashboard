@@ -3823,13 +3823,23 @@ async function _trackLoad(btn){
   const type=btn.dataset.type;
   const el=document.getElementById('trackResult');
   if(!el)return;
-  el.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text-muted)"><div style="text-align:center"><div style="font-size:32px;margin-bottom:8px;animation:spin 1s linear infinite">⏳</div><div>Fetching tracking info for <b>${esc(ref)}</b>…</div></div></div>`;
+
+  // Auto-copy reference to clipboard so user can paste it anywhere
+  try{
+    await navigator.clipboard.writeText(ref);
+    // Show copied badge on button
+    const orig=btn.textContent;
+    btn.style.color='#10b981';
+    setTimeout(()=>{btn.style.color='var(--accent-light)';},2000);
+  }catch(e){}
+
+  el.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--text-muted)"><div style="text-align:center"><div style="font-size:32px;margin-bottom:8px">⏳</div><div>Fetching tracking info for <b>${esc(ref)}</b>…</div></div></div>`;
   try{
     const path=type==='container'?`/tracking/container/${encodeURIComponent(ref)}`:`/tracking/bl/${encodeURIComponent(ref)}`;
     const data=await api(path);
     el.innerHTML=_renderTrackData(data,ref);
   }catch(e){
-    el.innerHTML=_renderTrackFallback(ref,btn.dataset.type,e.message);
+    el.innerHTML=_renderTrackFallback(ref,type,e.message);
   }
 }
 
@@ -3881,19 +3891,27 @@ function _renderTrackData(d,ref){
 }
 
 function _renderTrackFallback(ref,type,errMsg){
-  const carrierKey=Object.keys(CARRIER_URLS).find(k=>k.length>2);
+  const ttUrl=`https://www.track-trace.com/${type==='container'?'container':'bill-of-lading'}?number=${encodeURIComponent(ref)}`;
   return `
-    <div style="text-align:center;padding:24px 16px">
-      <div style="font-size:36px;margin-bottom:12px">📡</div>
-      <div style="font-weight:700;font-size:15px;margin-bottom:6px">Tracking data unavailable</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px">${esc(errMsg||'Could not fetch tracking for '+ref)}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center">
-        <a href="https://www.track-trace.com/${type==='container'?'container':'bill-of-lading'}?number=${encodeURIComponent(ref)}"
-           target="_blank" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;padding:9px 20px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;box-shadow:0 2px 12px rgba(99,102,241,0.3)">
-          🔍 Track ${esc(ref)} on track-trace.com
+    <div style="padding:20px 0">
+      <div style="background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:12px;padding:20px;margin-bottom:16px">
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Reference Number — copied to clipboard ✓</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <code style="font-size:18px;font-weight:800;color:var(--text-primary);letter-spacing:0.05em;flex:1">${esc(ref)}</code>
+          <button onclick="navigator.clipboard.writeText('${escAttr(ref)}').then(()=>{this.textContent='✅ Copied';setTimeout(()=>this.textContent='📋 Copy',2000)})"
+            style="background:var(--accent-dim);border:1px solid rgba(99,102,241,0.3);color:var(--accent-light);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit;white-space:nowrap">
+            📋 Copy
+          </button>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Paste this number in the search box on the carrier tracking site:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <a href="${ttUrl}" target="_blank"
+          style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;padding:11px 22px;border-radius:10px;text-decoration:none;font-size:14px;font-weight:700;box-shadow:0 2px 12px rgba(99,102,241,0.3);display:flex;align-items:center;gap:8px">
+          🔍 Open track-trace.com — paste the number above
         </a>
       </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:12px">Opens in a new tab with full tracking details</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:10px">track-trace.com tracks containers across all major carriers (Maersk, MSC, CMA CGM, etc.)</div>
     </div>`;
 }
 
