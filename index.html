@@ -3748,58 +3748,86 @@ const CARRIER_URLS={
   'kuwait airways cargo':r=>`https://cargo.kuwaitairways.com/track?awb=${r}`,
   'agility':          r=>`https://agilitylogistics.com/en/tracking/?trackingNumber=${r}`,
 };
-const UNIVERSAL_TRACKER=r=>`https://www.track-trace.com/bill-of-lading?number=${r}`;
+// track-trace.com is specifically built for embedding — always works inside iframes
+const TT_BL  = n=>`https://www.track-trace.com/bill-of-lading?number=${encodeURIComponent(n)}`;
+const TT_CNTR= n=>`https://www.track-trace.com/container?number=${encodeURIComponent(n)}`;
+const TT_AIR = n=>`https://www.track-trace.com/aircargo?number=${encodeURIComponent(n)}`;
+const UNIVERSAL_TRACKER=r=>TT_BL(r);
+
+function _trackUrl(ref,isAir,isContainer){
+  if(isContainer) return TT_CNTR(ref);
+  if(isAir) return TT_AIR(ref);
+  return TT_BL(ref);
+}
+
+function _loadTrackFrame(url){
+  const f=document.getElementById('trackFrame');
+  if(f){f.src=url;}
+}
+
+function _setActiveTrackTab(el){
+  document.querySelectorAll('.track-tab').forEach(t=>{
+    t.style.background='transparent';
+    t.style.color='var(--text-muted)';
+    t.style.borderColor='transparent';
+  });
+  el.style.background='var(--accent-dim)';
+  el.style.color='var(--accent-light)';
+  el.style.borderColor='rgba(99,102,241,0.4)';
+}
 
 function openCarrierTracking(carrier,blAwb,mode,containersStr){
   const containers=(containersStr||'').split('|').map(s=>s.trim()).filter(Boolean);
-  const isAir=mode&&mode.toLowerCase().includes('air');
+  const isAir=mode&&(mode.toLowerCase().includes('air')||mode.toLowerCase().includes('dhl')||mode.toLowerCase().includes('fedex')||mode.toLowerCase().includes('aramex'));
   const key=(carrier||'').toLowerCase().trim();
-  const urlFn=CARRIER_URLS[key]||UNIVERSAL_TRACKER;
-  const isFallback=!CARRIER_URLS[key];
+  const directUrlFn=CARRIER_URLS[key]||null;
 
-  // Build tracking reference: prefer BL/AWB, show containers too
   const hasRef=blAwb||containers.length>0;
-  if(!hasRef){_showDrillModal('Carrier Tracking','<p style="color:var(--text-muted);padding:12px 0">No BL/AWB or container number entered for this shipment.</p>');return;}
+  if(!hasRef){
+    _showDrillModal('Carrier Tracking','<p style="color:var(--text-muted);padding:16px 0">No BL/AWB or container numbers entered for this shipment.<br><small>Enter them in the Excel or via the New Entry form.</small></p>');
+    return;
+  }
 
-  // Primary tracking uses BL/AWB; container buttons open per-container tracking
-  const primaryRef=blAwb||containers[0];
-  const trackUrl=urlFn(encodeURIComponent(primaryRef));
+  // Build tab list — containers first (preferred), then BL
+  const tabs=[];
+  containers.forEach((c,i)=>tabs.push({label:c,url:TT_CNTR(c),type:'container',idx:i}));
+  if(blAwb) tabs.push({label:isAir?`AWB: ${blAwb}`:`BL: ${blAwb}`,url:_trackUrl(blAwb,isAir,false),type:'bl',idx:tabs.length});
 
-  // Container number buttons
-  const containerBtns=containers.length>0
-    ?`<div style="margin-bottom:14px">
-        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">📦 Container Numbers — click to track individually</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${containers.map(c=>{
-            const cUrl=urlFn(encodeURIComponent(c));
-            return `<div style="display:flex;gap:6px;align-items:center;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:6px 10px">
-              <span style="font-size:12px;font-weight:700;font-family:monospace;color:var(--text-primary)">${esc(c)}</span>
-              <a href="${cUrl}" target="_blank" style="font-size:10px;color:var(--accent-light);text-decoration:none;font-weight:600;white-space:nowrap;border-left:1px solid var(--border-color);padding-left:8px">Track ↗</a>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`
-    :'';
+  const firstUrl=tabs[0].url;
+  const directUrl=directUrlFn?(isAir?directUrlFn(blAwb||containers[0]):directUrlFn(blAwb||containers[0])):null;
+
+  const tabHtml=tabs.map((t,i)=>`
+    <button class="track-tab" onclick="_setActiveTrackTab(this);_loadTrackFrame('${t.url}')"
+      style="padding:6px 14px;border-radius:20px;border:1px solid ${i===0?'rgba(99,102,241,0.4)':'transparent'};cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;white-space:nowrap;transition:all 0.15s;background:${i===0?'var(--accent-dim)':'transparent'};color:${i===0?'var(--accent-light)':'var(--text-muted)'}"
+      title="${t.type==='container'?'Container':'BL/AWB'} — opens in track-trace.com">
+      ${t.type==='container'?'📦 ':'📄 '}${esc(t.label)}
+    </button>`).join('');
 
   const body=`
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-      <div style="flex:1;min-width:200px;font-size:13px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="flex:1;font-size:13px">
         <span style="color:var(--text-muted)">Carrier: </span><b>${esc(carrier||'Unknown')}</b>
-        ${blAwb?`&nbsp;&nbsp;<span style="color:var(--text-muted)">${isAir?'AWB':'BL'}: </span><b style="font-family:monospace">${esc(blAwb)}</b>`:''}
-        ${isFallback?'<span style="font-size:11px;color:#d4891a;margin-left:8px">(universal tracker)</span>':''}
+        <span style="font-size:11px;color:var(--text-muted);margin-left:10px">Powered by track-trace.com</span>
       </div>
-      <a href="${trackUrl}" target="_blank" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;padding:7px 16px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;white-space:nowrap;box-shadow:0 2px 8px rgba(99,102,241,0.3)">Open in New Tab ↗</a>
+      ${directUrl?`<a href="${directUrl}" target="_blank" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-primary);padding:6px 14px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600;white-space:nowrap">Open ${esc(carrier)} Site ↗</a>`:''}
     </div>
-    ${containerBtns}
-    <iframe src="${trackUrl}" style="width:100%;height:480px;border:1px solid var(--border-color);border-radius:10px;background:#fff" referrerpolicy="no-referrer" loading="lazy"></iframe>
-    <p style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">If the tracking page appears blank, the carrier blocks embedding — use "Open in New Tab ↗" or the individual container track buttons above.</p>`;
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding:8px 0;border-bottom:1px solid var(--border-color)">
+      ${tabHtml}
+    </div>
+    <iframe id="trackFrame" src="${firstUrl}"
+      style="width:100%;height:520px;border:1px solid var(--border-color);border-radius:10px;background:#f8f9fa"
+      referrerpolicy="no-referrer" loading="lazy" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation-by-user-activation"></iframe>
+    <p style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">
+      Tracking via track-trace.com — supports all major carriers by container number or BL.
+      Click each tab to switch between containers.
+    </p>`;
 
   document.getElementById('drillModal')?.remove();
   const html=`<div class="modal-overlay" id="drillModal" onclick="if(event.target===this)this.remove()">
-    <div class="modal-card wide" style="max-width:920px;width:95vw">
+    <div class="modal-card wide" style="max-width:960px;width:95vw">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <div class="modal-title" style="margin-bottom:0">📦 Carrier Tracking — ${esc(carrier||'Unknown')}</div>
-        <button onclick="document.getElementById('drillModal').remove()" style="background:none;border:none;color:#5c7898;font-size:18px;cursor:pointer;line-height:1">✕</button>
+        <button onclick="document.getElementById('drillModal').remove()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;line-height:1">✕</button>
       </div>
       ${body}
     </div>
