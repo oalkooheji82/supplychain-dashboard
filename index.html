@@ -1556,6 +1556,9 @@ function parseExcel(arrayBuffer){
     };
   });
 
+  // Load suppliers for autocomplete
+  DATA.suppliers=[...new Set(toArr('Suppliers').map(r=>r['Supplier Name']||'').filter(Boolean))].sort();
+
   DATA.escalations = toArr('Escalations & Blockers').filter(r=>r['Division']).map((r,i)=>{
     const jobCode=r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'';
     return {
@@ -1563,7 +1566,8 @@ function parseExcel(arrayBuffer){
       reference:r['Reference (PR/PO/Shipment)']||'', type:r['Type']||'',
       description:r['Description of Issue']||'', impact:r['Impact Level']||'',
       owner:r['Owner / Responsible']||'', actionRequired:r['Action Required']||'',
-      targetDate:formatDate(r['Target Resolution Date']), status:r['Status']||''
+      targetDate:formatDate(r['Target Resolution Date']), status:r['Status']||'',
+      resolutionNotes:r['Resolution Notes']||''
     };
   });
 }
@@ -2065,28 +2069,60 @@ const ESC_IMPACTS=['Critical','High','Medium','Low'];
 const ESC_STATUSES=['Open','In Progress','Escalated','Resolved','Closed'];
 const DIRECTIONS=['Import','Export'];
 const CUSTOMS_STATUSES=['Not Yet Filed','Documents Submitted','Under Review','Duties Paid','Customs Cleared','Released','On Hold'];
+const DEL_STATUSES=['Pending','Partial','Delivered','Short Close','Cancelled'];
+const CARRIERS=['Agility','Air Arabia Cargo','Aramex','Arkas Line','Bahri','CMA CGM','COSCO','CargoCare','DHL Express','ESL Shipping','Emirates SkyCargo','Evergreen','FedEx','Gulf Air Cargo','HMM','Hapag-Lloyd','KMTC','Kuwait Airways Cargo','MSC','Maersk Line','ONE (Ocean Network Express)','OOCL','Other','PIL (Pacific International Lines)','Qatar Airways Cargo','Samudera','TNT','Trailer / Truck','Turkon Line','Wan Hai','Yang Ming','Zim'];
+const REROUTE_REASONS=['Port Congestion','Vessel Change','Schedule Change','Carrier Cancellation','Geopolitical / Security Risk','IM5 / Customs Approval Delay','Other'];
+const DELAY_REASONS=['Port Congestion','Vessel Delay / Schedule Change','Document Delay','Customs Hold / Query','Geopolitical / Security Risk','Port Closure','IM5 / Customs Approval Delay','Carrier Cancellation','Other'];
 
-// ── Form field builder ─────────────────────────
+// ── Input style ────────────────────────────────
+const ISTYLE='width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;color:var(--text-primary);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s';
+const LSTYLE='font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px';
+
+// ── Field builder ──────────────────────────────
 function _fld(id,label,type,opts={}){
   const req=opts.required?'required':'';
-  const ro=opts.readonly?'readonly style="opacity:0.6;cursor:not-allowed"':'';
-  const val=opts.value!=null?`value="${escAttr(String(opts.value))}"`:opts.type==='select'?'':'';
+  const ro=opts.readonly?'readonly':'' ;
+  const roStyle=opts.readonly?'opacity:0.55;cursor:not-allowed;':'';
+  const val=opts.value!=null?`value="${escAttr(String(opts.value))}"`:'' ;
   const hint=opts.hint?`<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${esc(opts.hint)}</div>`:'';
   let input='';
   if(type==='select'){
     const choices=(opts.options||[]).map(o=>`<option value="${escAttr(o)}"${opts.value===o?' selected':''}>${esc(o)}</option>`).join('');
-    input=`<select id="${id}" ${req} ${ro} style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;color:var(--text-primary);font-size:13px"><option value="">— Select —</option>${choices}</select>`;
+    input=`<select id="${id}" ${req} style="${ISTYLE};${roStyle}" ${ro}><option value="">— Select —</option>${choices}</select>`;
   }else if(type==='textarea'){
-    input=`<textarea id="${id}" rows="2" ${req} ${ro} style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;color:var(--text-primary);font-size:13px;resize:vertical">${escAttr(String(opts.value||''))}</textarea>`;
+    input=`<textarea id="${id}" rows="2" ${req} style="${ISTYLE};resize:vertical;${roStyle}" ${ro}>${escAttr(String(opts.value||''))}</textarea>`;
   }else if(type==='number'){
-    input=`<input id="${id}" type="number" step="0.01" ${val} ${req} ${ro} style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;color:var(--text-primary);font-size:13px">`;
+    input=`<input id="${id}" type="number" step="0.01" ${val} ${req} style="${ISTYLE};${roStyle}" ${ro}>`;
   }else{
-    input=`<input id="${id}" type="${type}" ${val} ${req} ${ro} style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;color:var(--text-primary);font-size:13px">`;
+    input=`<input id="${id}" type="${type}" ${val} ${req} style="${ISTYLE};${roStyle}" ${ro}>`;
   }
-  return `<div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">${esc(label)}${opts.required?' <span style="color:#b83232">*</span>':''}</label>${input}${hint}</div>`;
+  return `<div style="display:flex;flex-direction:column;gap:3px"><label style="${LSTYLE}">${esc(label)}${opts.required?' <span style="color:#ef4444">*</span>':''}</label>${input}${hint}</div>`;
 }
 
+// ── Autocomplete field (datalist) ──────────────
+function _ac(id,label,listData,value='',required=false,hint=''){
+  const dlId=id+'_dl';
+  const opts=(listData||[]).map(o=>`<option value="${escAttr(String(o))}">`).join('');
+  const hintHtml=hint?`<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${esc(hint)}</div>`:'';
+  return `<div style="display:flex;flex-direction:column;gap:3px">
+    <label style="${LSTYLE}">${esc(label)}${required?' <span style="color:#ef4444">*</span>':''}</label>
+    <datalist id="${dlId}">${opts}</datalist>
+    <input id="${id}" list="${dlId}" value="${escAttr(value)}" ${required?'required':''} autocomplete="off" style="${ISTYLE}" placeholder="Type to search or enter new...">
+    ${hintHtml}</div>`;
+}
+
+// ── Grid helper ────────────────────────────────
 function _grid(...fields){return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">${fields.join('')}</div>`;}
+function _grid2(...fields){return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${fields.join('')}</div>`;}
+function _grid3(...fields){return `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">${fields.join('')}</div>`;}
+
+// ── Section divider ────────────────────────────
+function _sec(title,icon=''){
+  return `<div style="display:flex;align-items:center;gap:8px;margin-top:4px;margin-bottom:2px;padding-bottom:8px;border-bottom:1px solid var(--border-color)">
+    ${icon?`<span style="font-size:16px">${icon}</span>`:''}
+    <span style="font-size:12px;font-weight:700;color:var(--accent-light);text-transform:uppercase;letter-spacing:0.06em">${esc(title)}</span>
+  </div>`;
+}
 
 // ── Generic form modal ─────────────────────────
 function _openFormModal(title,bodyHtml,onSubmit){
@@ -2096,25 +2132,26 @@ function _openFormModal(title,bodyHtml,onSubmit){
   modal.className='modal-overlay';
   modal.onclick=e=>{if(e.target===modal)modal.remove();};
   modal.innerHTML=`
-    <div class="modal-card wide" style="max-width:820px;width:95vw;max-height:90vh;overflow-y:auto">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;position:sticky;top:0;background:var(--bg-secondary);padding-bottom:12px;border-bottom:1px solid var(--border-color)">
+    <div class="modal-card wide" style="max-width:860px;width:95vw;max-height:92vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;position:sticky;top:0;background:rgba(10,10,28,0.96);padding-bottom:12px;border-bottom:1px solid var(--border-color);z-index:10;backdrop-filter:blur(8px)">
         <div class="modal-title" style="margin-bottom:0">${title}</div>
-        <button onclick="document.getElementById('dataFormModal').remove()" style="background:none;border:none;color:#5c7898;font-size:18px;cursor:pointer">✕</button>
+        <button onclick="document.getElementById('dataFormModal').remove()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer">✕</button>
       </div>
       <form id="dataEntryForm" onsubmit="event.preventDefault()" style="display:flex;flex-direction:column;gap:14px">
         ${bodyHtml}
       </form>
-      <div id="formSubmitErr" style="display:none;margin-top:10px;padding:10px;background:#b8323222;border:1px solid #b8323244;border-radius:8px;font-size:13px;color:#f08080"></div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:1px solid var(--border-color);position:sticky;bottom:0;background:var(--bg-secondary)">
-        <button onclick="document.getElementById('dataFormModal').remove()" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-muted);border-radius:8px;padding:8px 20px;cursor:pointer;font-size:13px">Cancel</button>
-        <button id="formSubmitBtn" onclick="(${onSubmit.toString()})()" style="background:#2d6fd4;color:#fff;border:none;border-radius:8px;padding:8px 24px;cursor:pointer;font-size:13px;font-weight:600">Save to Excel</button>
+      <div id="formSubmitErr" style="display:none;margin-top:10px;padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;font-size:13px;color:#fca5a5"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:1px solid var(--border-color);position:sticky;bottom:0;background:rgba(10,10,28,0.96);backdrop-filter:blur(8px)">
+        <button onclick="document.getElementById('dataFormModal').remove()" style="background:var(--bg-tertiary);border:1px solid var(--border-color);color:var(--text-muted);border-radius:8px;padding:9px 22px;cursor:pointer;font-size:13px;font-family:inherit">Cancel</button>
+        <button id="formSubmitBtn" onclick="(${onSubmit.toString()})()" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:8px;padding:9px 26px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit;box-shadow:0 2px 12px rgba(99,102,241,0.3)">Save to Excel</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
 }
 
-function _formVal(id){const el=document.getElementById(id);return el?el.value.trim():'';}
+function _formVal(id){const el=document.getElementById(id);return el?(el.value||'').trim():'';}
 function _formNum(id){const v=_formVal(id);return v?parseFloat(v):null;}
+function _formChk(id){const el=document.getElementById(id);return el?el.checked:false;}
 
 async function _submitForm(sheet,data,mode,keyValue){
   const btn=document.getElementById('formSubmitBtn');
@@ -2123,13 +2160,10 @@ async function _submitForm(sheet,data,mode,keyValue){
   try{
     await api('/data/submit','POST',{sheet,mode,key_value:keyValue||null,data});
     document.getElementById('dataFormModal')?.remove();
-    // Show success toast
     const t=document.createElement('div');
     t.textContent='✅ Saved to Excel';
-    t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d9e80;color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.5)';
-    document.body.appendChild(t);
-    setTimeout(()=>t.remove(),3000);
-    // Reload data after a short delay
+    t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#10b981,#059669);color:#fff;padding:12px 28px;border-radius:10px;font-size:14px;font-weight:700;z-index:9999;box-shadow:0 4px 24px rgba(16,185,129,0.4)';
+    document.body.appendChild(t);setTimeout(()=>t.remove(),3000);
     setTimeout(()=>loadExcelData(true),1500);
   }catch(e){
     errEl.textContent=e.message;errEl.style.display='';
@@ -2137,17 +2171,72 @@ async function _submitForm(sheet,data,mode,keyValue){
   }
 }
 
-// ── Local Purchases form ───────────────────────
+// ── Get unique names from existing data ────────
+function _teamNames(){
+  return [...new Set([
+    ...DATA.localPurchases.map(d=>d.buyer),
+    ...DATA.intlPurchases.map(d=>d.buyer),
+    ...DATA.escalations.map(d=>d.owner),
+  ].filter(Boolean))].sort();
+}
+function _requestedByNames(){
+  return [...new Set([
+    ...DATA.localPurchases.map(d=>d.requestedBy||''),
+    ...DATA.intlPurchases.map(d=>d.requestedBy||''),
+  ].filter(Boolean))].sort();
+}
+
+// ── Container numbers multi-row ─────────────────
+function _containerWidget(existing=[]){
+  const rows=(existing.length?existing:[''])
+    .map((c,i)=>`<div id="cntr_row_${i}" style="display:flex;gap:6px;align-items:center">
+      <input id="cntr_${i}" type="text" value="${escAttr(c)}" placeholder="e.g. TCKU1234567" style="${ISTYLE};font-family:monospace;flex:1">
+      <button type="button" onclick="removeCntrRow(${i})" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;flex-shrink:0">×</button>
+    </div>`).join('');
+  return `<div>
+    <label style="${LSTYLE}">Container Numbers</label>
+    <div id="cntr_list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">${rows}</div>
+    <button type="button" onclick="addCntrRow()" style="background:var(--accent-dim);border:1px solid rgba(99,102,241,0.3);color:var(--accent-light);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600">+ Add Container</button>
+    <div style="font-size:10px;color:var(--text-muted);margin-top:4px">One container number per row (ISO format: TCKU1234567)</div>
+  </div>`;
+}
+function addCntrRow(){
+  const list=document.getElementById('cntr_list');
+  if(!list)return;
+  const idx=list.children.length;
+  const div=document.createElement('div');
+  div.id='cntr_row_'+idx;
+  div.style.cssText='display:flex;gap:6px;align-items:center';
+  div.innerHTML=`<input id="cntr_${idx}" type="text" placeholder="e.g. TCKU1234567" style="${ISTYLE};font-family:monospace;flex:1"><button type="button" onclick="removeCntrRow(${idx})" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;flex-shrink:0">×</button>`;
+  list.appendChild(div);
+}
+function removeCntrRow(idx){
+  document.getElementById('cntr_row_'+idx)?.remove();
+}
+function _getCntrs(){
+  const list=document.getElementById('cntr_list');
+  if(!list)return[];
+  return Array.from(list.querySelectorAll('input[id^="cntr_"]')).map(el=>el.value.trim()).filter(Boolean);
+}
+
+// ═══════════════════════════════════════════════
+// LOCAL PURCHASES FORM
+// ═══════════════════════════════════════════════
 function openLocalForm(existing){
   const isEdit=!!existing;
   const buyer=currentUser?.full_name||'';
   const _allDivs=DIVISIONS.filter(d=>d!=='Consolidated View');
   const divisionOpts=(!currentUser||currentUser.divisions.includes('all'))?_allDivs:currentUser.divisions.filter(d=>_allDivs.includes(d));
-  const projOpts=[''].concat([...new Set(DATA.localPurchases.map(d=>d.jobCode).filter(Boolean))].sort());
+  const projOpts=[...new Set(DATA.localPurchases.map(d=>d.jobCode).filter(Boolean))].sort();
+  const suppList=DATA.suppliers||[];
+  const today=new Date().toISOString().slice(0,10);
+
   const body=`
+    ${_sec('Basic Information','📋')}
     ${_grid(
       _fld('lf_div','Division','select',{options:divisionOpts,value:existing?.division||activeDivision!=='Consolidated View'?activeDivision:'',required:true}),
-      _fld('lf_job','Job / Project Code','select',{options:projOpts,value:existing?.jobCode||''})
+      _ac('lf_job','Job / Project Code',projOpts,existing?.jobCode||''),
+      _fld('lf_date','Date','date',{value:existing?.date||today})
     )}
     ${_grid(
       _fld('lf_pr','PR Number','text',{value:existing?.prNumber||'',required:true}),
@@ -2156,40 +2245,53 @@ function openLocalForm(existing){
       _fld('lf_pri','Priority','select',{options:PRIORITIES,value:existing?.priority||'Normal'})
     )}
     ${_grid(
-      _fld('lf_buyer','Assigned Buyer','text',{value:buyer,readonly:true,hint:'Auto-filled from your login'}),
-      _fld('lf_date','Date Raised','date',{value:existing?.dateRaised||new Date().toISOString().slice(0,10)}),
+      _ac('lf_reqby','Requested By',_requestedByNames(),existing?.requestedBy||''),
+      _fld('lf_dateraised','Date Raised','date',{value:existing?.dateRaised||today}),
       _fld('lf_est','Estimated Value (BHD)','number',{value:existing?.estimatedValue||''}),
       _fld('lf_stage','Current Stage','select',{options:LP_STAGES,value:existing?.stage||'PR Received',required:true})
     )}
+    ${_sec('Supplier & PO Details','🛒')}
     ${_grid(
-      _fld('lf_supp','Supplier Name','text',{value:existing?.supplier||''}),
-      _fld('lf_po','PO Number','text',{value:existing?.poNumber||'',hint:'Enter PO # then tab to check for existing documents'}),
+      _ac('lf_supp','Supplier Name',suppList,existing?.supplier||''),
+      _fld('lf_po','PO Number','text',{value:existing?.poNumber||''}),
       _fld('lf_poval','PO Value (BHD)','number',{value:existing?.poValue||''}),
       _fld('lf_pt','Payment Terms','select',{options:PAYMENT_TERMS_ALL,value:existing?.paymentTerms||''})
     )}
     ${_grid(
+      _fld('lf_buyer','Assigned Buyer','text',{value:buyer,readonly:true,hint:'Auto-filled from your login'}),
       _fld('lf_exp','Expected Delivery Date','date',{value:existing?.expectedDelivery||''}),
-      _fld('lf_rem','Remarks / Blockers','textarea',{value:existing?.remarks||''})
+      _fld('lf_actual','Actual Delivery Date','date',{value:existing?.actualDelivery||''})
     )}
-    <div id="lf_po_hint" style="display:none"></div>`;
+    <div id="lf_po_hint" style="display:none"></div>
+    ${_sec('Notes','📝')}
+    ${_fld('lf_rem','Remarks / Blockers','textarea',{value:existing?.remarks||''})}
+    <div id="lf_cancel_wrap" style="display:${existing?.stage==='Cancelled'?'block':'none'}">
+      ${_fld('lf_cancel','Cancellation Reason','textarea',{value:existing?.cancellationReason||'',hint:'Required when stage is Cancelled'})}
+    </div>`;
+
   _openFormModal(isEdit?'✏️ Edit Local Purchase':'➕ New Local Purchase',body,async function(){
+    const stage=_formVal('lf_stage');
     const data={
+      'Date':_formVal('lf_date'),
       'Division':_formVal('lf_div'),
       'Project / Job Code':_formVal('lf_job'),
       'PR Number':_formVal('lf_pr'),
       'Item Description':_formVal('lf_item'),
+      'Requested By':_formVal('lf_reqby'),
+      'Date Raised':_formVal('lf_dateraised'),
       'Category':_formVal('lf_cat'),
       'Priority':_formVal('lf_pri'),
-      'Assigned Buyer':buyer,
-      'Date Raised':_formVal('lf_date'),
       'Estimated Value (BHD)':_formNum('lf_est'),
-      'Current Stage':_formVal('lf_stage'),
+      'Current Stage':stage,
+      'Assigned Buyer':buyer,
       'Supplier Name':_formVal('lf_supp'),
       'PO Number':_formVal('lf_po'),
       'PO Value (BHD)':_formNum('lf_poval'),
       'Payment Terms':_formVal('lf_pt'),
       'Expected Delivery Date':_formVal('lf_exp'),
+      'Actual Delivery Date':_formVal('lf_actual'),
       'Remarks / Blockers':_formVal('lf_rem'),
+      'Cancellation Reason':stage==='Cancelled'?_formVal('lf_cancel'):'',
     };
     if(!data['Division']||!data['PR Number']||!data['Item Description']){
       document.getElementById('formSubmitErr').textContent='Division, PR Number and Item Description are required.';
@@ -2197,20 +2299,35 @@ function openLocalForm(existing){
     }
     await _submitForm('Local Purchases',data,isEdit?'update':'new',isEdit?existing.prNumber:null);
   });
-  setTimeout(()=>{const el=document.getElementById('lf_po');if(el)el.addEventListener('blur',()=>_checkDocHint('lf_po','po','lf_po_hint'));},100);
+
+  setTimeout(()=>{
+    const stg=document.getElementById('lf_stage');
+    if(stg)stg.addEventListener('change',()=>{
+      document.getElementById('lf_cancel_wrap').style.display=stg.value==='Cancelled'?'block':'none';
+    });
+    const poEl=document.getElementById('lf_po');
+    if(poEl)poEl.addEventListener('blur',()=>_checkDocHint('lf_po','po','lf_po_hint'));
+  },100);
 }
 
-// ── International Purchases form ───────────────
+// ═══════════════════════════════════════════════
+// INTERNATIONAL PURCHASES FORM
+// ═══════════════════════════════════════════════
 function openIntlForm(existing){
   const isEdit=!!existing;
   const buyer=currentUser?.full_name||'';
   const _allDivs=DIVISIONS.filter(d=>d!=='Consolidated View');
   const divisionOpts=(!currentUser||currentUser.divisions.includes('all'))?_allDivs:currentUser.divisions.filter(d=>_allDivs.includes(d));
-  const projOpts=[''].concat([...new Set(DATA.intlPurchases.map(d=>d.jobCode).filter(Boolean))].sort());
+  const projOpts=[...new Set(DATA.intlPurchases.map(d=>d.jobCode).filter(Boolean))].sort();
+  const suppList=DATA.suppliers||[];
+  const today=new Date().toISOString().slice(0,10);
+
   const body=`
+    ${_sec('Basic Information','📋')}
     ${_grid(
       _fld('if_div','Division','select',{options:divisionOpts,value:existing?.division||activeDivision!=='Consolidated View'?activeDivision:'',required:true}),
-      _fld('if_job','Job / Project Code','select',{options:projOpts,value:existing?.jobCode||''})
+      _ac('if_job','Job / Project Code',projOpts,existing?.jobCode||''),
+      _fld('if_date','Date','date',{value:existing?.date||today})
     )}
     ${_grid(
       _fld('if_pr','PR Number','text',{value:existing?.prNumber||'',required:true}),
@@ -2219,14 +2336,15 @@ function openIntlForm(existing){
       _fld('if_pri','Priority','select',{options:PRIORITIES,value:existing?.priority||'Normal'})
     )}
     ${_grid(
-      _fld('if_buyer','Assigned Buyer','text',{value:buyer,readonly:true,hint:'Auto-filled from your login'}),
-      _fld('if_date','Date Raised','date',{value:existing?.dateRaised||new Date().toISOString().slice(0,10)}),
+      _ac('if_reqby','Requested By',_requestedByNames(),existing?.requestedBy||''),
+      _fld('if_dateraised','Date Raised','date',{value:existing?.dateRaised||today}),
       _fld('if_est','Estimated Value (USD)','number',{value:existing?.estimatedValue||''}),
       _fld('if_stage','Current Stage','select',{options:IP_STAGES,value:existing?.stage||'PR Received',required:true})
     )}
+    ${_sec('Supplier & PO Details','🛒')}
     ${_grid(
-      _fld('if_supp','Supplier Name','text',{value:existing?.supplier||''}),
-      _fld('if_country','Supplier Country','text',{value:existing?.country||''}),
+      _ac('if_supp','Supplier Name',suppList,existing?.supplier||''),
+      _ac('if_country','Supplier Country',[...new Set(DATA.intlPurchases.map(d=>d.country).filter(Boolean))].sort(),existing?.country||''),
       _fld('if_po','PO Number','text',{value:existing?.poNumber||''}),
       _fld('if_poval','PO Value (USD)','number',{value:existing?.poValue||''})
     )}
@@ -2237,21 +2355,28 @@ function openIntlForm(existing){
       _fld('if_prod','Production Status','select',{options:PROD_STATUSES,value:existing?.productionStatus||'Not Started'})
     )}
     ${_grid(
+      _fld('if_buyer','Assigned Buyer','text',{value:buyer,readonly:true,hint:'Auto-filled from your login'}),
+      _fld('if_ready','Ready Date','date',{value:existing?.readyDate||''}),
       _fld('if_exp','Expected Delivery Date','date',{value:existing?.expectedDelivery||''}),
-      _fld('if_rem','Remarks / Blockers','textarea',{value:existing?.remarks||''})
-    )}`;
+      _fld('if_actual','Actual Delivery Date','date',{value:existing?.actualDelivery||''})
+    )}
+    ${_sec('Notes','📝')}
+    ${_fld('if_rem','Remarks / Blockers','textarea',{value:existing?.remarks||''})}`;
+
   _openFormModal(isEdit?'✏️ Edit International Purchase':'➕ New International Purchase',body,async function(){
     const data={
+      'Date':_formVal('if_date'),
       'Division':_formVal('if_div'),
       'Project / Job Code':_formVal('if_job'),
       'PR Number':_formVal('if_pr'),
       'Item Description':_formVal('if_item'),
+      'Requested By':_formVal('if_reqby'),
+      'Date Raised':_formVal('if_dateraised'),
       'Category':_formVal('if_cat'),
       'Priority':_formVal('if_pri'),
-      'Assigned Buyer':buyer,
-      'Date Raised':_formVal('if_date'),
       'Estimated Value (USD)':_formNum('if_est'),
       'Current Stage':_formVal('if_stage'),
+      'Assigned Buyer':buyer,
       'Supplier Name':_formVal('if_supp'),
       'Supplier Country':_formVal('if_country'),
       'PO Number':_formVal('if_po'),
@@ -2260,7 +2385,9 @@ function openIntlForm(existing){
       'Payment Terms':_formVal('if_pt'),
       'Payment Status':_formVal('if_ps'),
       'Production Status':_formVal('if_prod'),
+      'Ready Date':_formVal('if_ready'),
       'Expected Delivery Date':_formVal('if_exp'),
+      'Actual Delivery Date':_formVal('if_actual'),
       'Remarks / Blockers':_formVal('if_rem'),
     };
     if(!data['Division']||!data['PR Number']||!data['Item Description']){
@@ -2271,60 +2398,144 @@ function openIntlForm(existing){
   });
 }
 
-// ── Shipments form ─────────────────────────────
+// ═══════════════════════════════════════════════
+// SHIPMENTS FORM
+// ═══════════════════════════════════════════════
 function openShipmentForm(existing){
   const isEdit=!!existing;
   const _allDivs=DIVISIONS.filter(d=>d!=='Consolidated View');
   const divisionOpts=(!currentUser||currentUser.divisions.includes('all'))?_allDivs:currentUser.divisions.filter(d=>_allDivs.includes(d));
-  const carriers=['Agility','Air Arabia Cargo','Aramex','Arkas Line','Bahri','CMA CGM','COSCO','CargoCare','DHL Express','ESL Shipping','Emirates SkyCargo','Evergreen','FedEx','Gulf Air Cargo','HMM','Hapag-Lloyd','KMTC','Kuwait Airways Cargo','MSC','Maersk Line','ONE (Ocean Network Express)','OOCL','Other','PIL (Pacific International Lines)','Qatar Airways Cargo','Samudera','TNT','Trailer / Truck','Turkon Line','Wan Hai','Yang Ming','Zim'];
+  const suppList=DATA.suppliers||[];
+  const today=new Date().toISOString().slice(0,10);
+  const existingCntrs=existing?.containerNumbers||[];
+
   const body=`
+    ${_sec('Shipment Details','🚢')}
     ${_grid(
       _fld('sf_div','Division','select',{options:divisionOpts,value:existing?.division||activeDivision!=='Consolidated View'?activeDivision:'',required:true}),
       _fld('sf_dir','Direction','select',{options:DIRECTIONS,value:existing?.direction||'Import',required:true}),
-      _fld('sf_mode','Shipment Mode','select',{options:SHIP_MODES,value:existing?.mode||'Sea FCL'})
+      _fld('sf_mode','Shipment Mode','select',{options:SHIP_MODES,value:existing?.mode||'Sea FCL'}),
+      _fld('sf_date','Date','date',{value:existing?.date||today})
     )}
     ${_grid(
-      _fld('sf_job','Job / Project Code','text',{value:existing?.jobCode||''}),
+      _ac('sf_job','Job / Project Code',[...new Set(DATA.shipments.map(d=>d.jobCode).filter(Boolean))].sort(),existing?.jobCode||''),
       _fld('sf_po','PO Reference','text',{value:existing?.poRef||''}),
       _fld('sf_item','Item Description','text',{value:existing?.item||'',required:true}),
-      _fld('sf_supp','Supplier / Consignee','text',{value:existing?.supplier||''})
+      _ac('sf_supp','Supplier / Consignee',suppList,existing?.supplier||'')
     )}
     ${_grid(
-      _fld('sf_country','Country','text',{value:existing?.country||''}),
-      _fld('sf_inc','Incoterms','select',{options:INCOTERMS_ALL,value:existing?.incoterms||''}),
-      _fld('sf_carrier','Carrier','select',{options:carriers,value:existing?.carrier||''}),
-      _fld('sf_bl','BL / AWB Number','text',{value:existing?.blAwb||''})
+      _ac('sf_country','Country',[...new Set(DATA.shipments.map(d=>d.country).filter(Boolean))].sort(),existing?.country||''),
+      _fld('sf_inc','Incoterms','select',{options:INCOTERMS_ALL,value:existing?.incoterms||''})
+    )}
+    ${_sec('Carrier & Route','📍')}
+    ${_grid(
+      _fld('sf_carrier','Carrier / Shipping Line','select',{options:CARRIERS,value:existing?.carrier||''}),
+      _fld('sf_bl','BL / AWB Number','text',{value:existing?.blAwb||''}),
+      _fld('sf_vessel','Vessel Name','text',{value:existing?.vesselName||''})
     )}
     ${_grid(
-      _fld('sf_orig','Origin Port / City','text',{value:existing?.originPort||''}),
-      _fld('sf_dest','Destination Port / City','text',{value:existing?.destPort||''}),
+      _ac('sf_orig','Origin Port / City',[...new Set(DATA.shipments.map(d=>d.originPort).filter(Boolean))].sort(),existing?.originPort||''),
+      _ac('sf_dest','Destination Port / City',[...new Set(DATA.shipments.map(d=>d.destPort).filter(Boolean))].sort(),existing?.destPort||''),
+      _fld('sf_destcountry','Country of Destination','text',{value:existing?.countryOfDest||''})
+    )}
+    ${_grid(
       _fld('sf_etd','ETD','date',{value:existing?.etd||''}),
-      _fld('sf_eta','ETA','date',{value:existing?.eta||''})
+      _fld('sf_eta','ETA','date',{value:existing?.eta||''}),
+      _fld('sf_arrival','Actual Arrival Date','date',{value:existing?.actualArrival||''}),
+      _fld('sf_whdate','Delivered to Warehouse Date','date',{value:existing?.whDate||''})
     )}
     ${_grid(
       _fld('sf_status','Current Status','select',{options:SHIP_STATUSES,value:existing?.status||'Booking Confirmed',required:true}),
-      _fld('sf_customs','Customs Status','select',{options:CUSTOMS_STATUSES,value:existing?.customsStatus||'Not Yet Filed'}),
-      _fld('sf_rem','Remarks / Delays','textarea',{value:existing?.remarks||''})
-    )}`;
+      _fld('sf_delayReason','Delay Reason','select',{options:DELAY_REASONS,value:existing?.delayReason||''})
+    )}
+    ${_sec('Containers & Cargo','📦')}
+    ${_grid(
+      _fld('sf_cnt20','No. of 20ft Containers','number',{value:existing?.cnt20||''}),
+      _fld('sf_cnt40','No. of 40ft Containers','number',{value:existing?.cnt40||''}),
+      _fld('sf_cnt40hc','No. of 40ft HC Containers','number',{value:existing?.cnt40hc||''}),
+      _fld('sf_lcl','LCL CBM','number',{value:existing?.lclCbm||''}),
+      _fld('sf_pkgs','Total Packages / Pallets','number',{value:existing?.packages||''})
+    )}
+    ${_containerWidget(existingCntrs)}
+    <div id="sf_reroute_wrap" style="display:${existing?.rerouted==='Yes'?'block':'none'}">
+      ${_sec('Rerouting','🔄')}
+      ${_grid(
+        _fld('sf_reroute_reason','Reroute Reason','select',{options:REROUTE_REASONS,value:existing?.rerouteReason||''}),
+        _ac('sf_reroute_to','Rerouted To (Port/City)',[...new Set(DATA.shipments.map(d=>d.reroutedTo).filter(Boolean))].sort(),existing?.reroutedTo||''),
+        _fld('sf_reroute_vessel','Rerouted Vessel','text',{value:existing?.reroutedVessel||''})
+      )}
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px">
+      <input type="checkbox" id="sf_rerouted" ${existing?.rerouted==='Yes'?'checked':''} style="width:16px;height:16px;cursor:pointer;accent-color:#6366f1" onchange="document.getElementById('sf_reroute_wrap').style.display=this.checked?'block':'none'">
+      <label for="sf_rerouted" style="font-weight:600;cursor:pointer;font-size:13px">Rerouted</label>
+    </div>
+    ${_sec('Customs & Clearance','🛃')}
+    ${_grid(
+      _ac('sf_broker','Customs Broker',[...new Set(DATA.shipments.map(d=>d.customsBroker).filter(Boolean))].sort(),existing?.customsBroker||''),
+      _fld('sf_customs','Customs Status','select',{options:CUSTOMS_STATUSES,value:existing?.customsStatus||'Not Yet Filed'})
+    )}
+    ${_grid(
+      _fld('sf_cargo','Cargo Value (BHD)','number',{value:existing?.cargoValue||''}),
+      _fld('sf_duty','Customs Duty (BHD)','number',{value:existing?.customsDuty||''}),
+      _fld('sf_vatrate','VAT Rate (%)','number',{value:existing?.vatRate||''}),
+      _fld('sf_vat','VAT (BHD)','number',{value:existing?.vat||''})
+    )}
+    ${_grid(
+      _fld('sf_do','DO Charges (BHD)','number',{value:existing?.doCharges||''}),
+      _fld('sf_freight','Freight Charges (BHD)','number',{value:existing?.freight||''}),
+      _fld('sf_thc','Handling / THC (BHD)','number',{value:existing?.thc||''}),
+      _fld('sf_demurrage','Demurrage / Detention (BHD)','number',{value:existing?.demurrage||''}),
+      _fld('sf_other','Other Charges (BHD)','number',{value:existing?.otherCharges||''})
+    )}
+    ${_sec('Notes','📝')}
+    ${_fld('sf_rem','Remarks / Delays','textarea',{value:existing?.remarks||''})}`;
+
   _openFormModal(isEdit?'✏️ Edit Shipment':'➕ New Shipment',body,async function(){
+    const rerouted=_formChk('sf_rerouted')?'Yes':'No';
     const data={
+      'Date':_formVal('sf_date'),
       'Division':_formVal('sf_div'),
       'Direction':_formVal('sf_dir'),
-      'Shipment Mode':_formVal('sf_mode'),
       'Project / Job Code':_formVal('sf_job'),
       'PO Reference':_formVal('sf_po'),
       'Item Description':_formVal('sf_item'),
       'Supplier / Consignee':_formVal('sf_supp'),
       'Country':_formVal('sf_country'),
       'Incoterms':_formVal('sf_inc'),
+      'Shipment Mode':_formVal('sf_mode'),
       'Carrier / Shipping Line':_formVal('sf_carrier'),
       'BL / AWB Number':_formVal('sf_bl'),
+      'Vessel Name':_formVal('sf_vessel'),
       'Origin Port / City':_formVal('sf_orig'),
       'Destination Port / City':_formVal('sf_dest'),
+      'Country of Destination':_formVal('sf_destcountry'),
       'ETD':_formVal('sf_etd'),
       'ETA':_formVal('sf_eta'),
+      'Actual Arrival Date':_formVal('sf_arrival'),
+      'Delivered to Warehouse Date':_formVal('sf_whdate'),
       'Current Status':_formVal('sf_status'),
+      'Delay Reason':_formVal('sf_delayReason'),
+      'No. of 20ft Containers':_formNum('sf_cnt20'),
+      'No. of 40ft Containers':_formNum('sf_cnt40'),
+      'No. of 40ft HC Containers':_formNum('sf_cnt40hc'),
+      'LCL CBM':_formNum('sf_lcl'),
+      'Total Packages / Pallets':_formNum('sf_pkgs'),
+      'Container Numbers':_getCntrs().join(', '),
+      'Rerouted (Y/N)':rerouted,
+      'Reroute Reason':rerouted==='Yes'?_formVal('sf_reroute_reason'):'',
+      'Rerouted To (Port/City)':rerouted==='Yes'?_formVal('sf_reroute_to'):'',
+      'Rerouted Vessel':rerouted==='Yes'?_formVal('sf_reroute_vessel'):'',
+      'Customs Broker':_formVal('sf_broker'),
       'Customs Status':_formVal('sf_customs'),
+      'Cargo Value (BHD)':_formNum('sf_cargo'),
+      'Customs Duty (BHD)':_formNum('sf_duty'),
+      'VAT Rate (%)':_formNum('sf_vatrate'),
+      'VAT (BHD)':_formNum('sf_vat'),
+      'DO Charges (BHD)':_formNum('sf_do'),
+      'Freight Charges (BHD)':_formNum('sf_freight'),
+      'Handling / THC (BHD)':_formNum('sf_thc'),
+      'Demurrage / Detention (BHD)':_formNum('sf_demurrage'),
+      'Other Charges (BHD)':_formNum('sf_other'),
       'Remarks / Delays':_formVal('sf_rem'),
     };
     if(!data['Division']||!data['Item Description']){
@@ -2335,30 +2546,39 @@ function openShipmentForm(existing){
   });
 }
 
-// ── Escalations form ───────────────────────────
+// ═══════════════════════════════════════════════
+// ESCALATIONS FORM
+// ═══════════════════════════════════════════════
 function openEscalationForm(existing){
   const isEdit=!!existing;
   const _allDivs=DIVISIONS.filter(d=>d!=='Consolidated View');
   const divisionOpts=(!currentUser||currentUser.divisions.includes('all'))?_allDivs:currentUser.divisions.filter(d=>_allDivs.includes(d));
+  const today=new Date().toISOString().slice(0,10);
+
   const body=`
+    ${_sec('Escalation Details','🚨')}
     ${_grid(
       _fld('ef_div','Division','select',{options:divisionOpts,value:existing?.division||activeDivision!=='Consolidated View'?activeDivision:'',required:true}),
-      _fld('ef_job','Job / Project Code','text',{value:existing?.jobCode||''}),
-      _fld('ef_ref','Reference (PR/PO/Shipment)','text',{value:existing?.reference||'',required:true})
+      _ac('ef_job','Job / Project Code',[...new Set(DATA.escalations.map(d=>d.jobCode).filter(Boolean))].sort(),existing?.jobCode||''),
+      _fld('ef_date','Date','date',{value:existing?.date||today})
     )}
     ${_grid(
+      _fld('ef_ref','Reference (PR/PO/Shipment)','text',{value:existing?.reference||'',required:true}),
       _fld('ef_type','Type','select',{options:ESC_TYPES,value:existing?.type||''}),
       _fld('ef_impact','Impact Level','select',{options:ESC_IMPACTS,value:existing?.impact||'Medium',required:true}),
       _fld('ef_status','Status','select',{options:ESC_STATUSES,value:existing?.status||'Open',required:true})
     )}
     ${_fld('ef_desc','Description of Issue','textarea',{value:existing?.description||'',required:true})}
     ${_grid(
-      _fld('ef_owner','Owner / Responsible','text',{value:existing?.owner||currentUser?.full_name||''}),
+      _ac('ef_owner','Owner / Responsible',_teamNames(),existing?.owner||currentUser?.full_name||''),
       _fld('ef_action','Action Required','text',{value:existing?.actionRequired||''}),
       _fld('ef_target','Target Resolution Date','date',{value:existing?.targetDate||''})
-    )}`;
+    )}
+    ${_fld('ef_notes','Resolution Notes','textarea',{value:existing?.resolutionNotes||'',hint:'Fill when resolved'})}`;
+
   _openFormModal(isEdit?'✏️ Edit Escalation':'➕ New Escalation',body,async function(){
     const data={
+      'Date':_formVal('ef_date'),
       'Division':_formVal('ef_div'),
       'Project / Job Code':_formVal('ef_job'),
       'Reference (PR/PO/Shipment)':_formVal('ef_ref'),
@@ -2369,6 +2589,7 @@ function openEscalationForm(existing){
       'Owner / Responsible':_formVal('ef_owner'),
       'Action Required':_formVal('ef_action'),
       'Target Resolution Date':_formVal('ef_target'),
+      'Resolution Notes':_formVal('ef_notes'),
     };
     if(!data['Division']||!data['Reference (PR/PO/Shipment)']||!data['Description of Issue']){
       document.getElementById('formSubmitErr').textContent='Division, Reference and Description are required.';
@@ -2378,78 +2599,112 @@ function openEscalationForm(existing){
   });
 }
 
-// ── Deliveries form ────────────────────────────
+// ═══════════════════════════════════════════════
+// DELIVERIES FORM — MULTI-ITEM
+// ═══════════════════════════════════════════════
+let _delItemCount=1;
+
 function openDeliveryForm(){
-  // Build dropdown of existing PO numbers from LP + IP
+  _delItemCount=1;
   const poList=[...new Set([
     ...DATA.localPurchases.filter(d=>d.poNumber).map(d=>d.poNumber),
     ...DATA.intlPurchases.filter(d=>d.poNumber).map(d=>d.poNumber),
   ])].sort();
+  const today=new Date().toISOString().slice(0,10);
 
   const body=`
-    ${_fld('df_lpo','LPO / PO Reference','select',{options:poList,required:true,hint:'Select the PO this delivery is for'})}
-    <div id="df_poInfo" style="background:var(--bg-tertiary);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text-muted);display:none"></div>
+    ${_sec('Delivery Header','📦')}
     ${_grid(
+      _fld('df_lpo','LPO / PO Reference','select',{options:poList,required:true,hint:'Select the PO this delivery is for'}),
       _fld('df_delnum','Delivery Number','text',{required:true}),
-      _fld('df_date','Delivery Date','date',{value:new Date().toISOString().slice(0,10),required:true})
+      _fld('df_date','Delivery Date','date',{value:today,required:true})
     )}
-    ${_grid(
-      _fld('df_qty_exp','Expected Qty','number',{readonly:true,hint:'Auto-filled from PO'}),
-      _fld('df_qty','Qty Delivered','number',{required:true,hint:'Enter actual qty received'})
-    )}
-    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:#b8323222;border:1px solid #b8323244;border-radius:8px">
-      <input type="checkbox" id="df_short" style="width:16px;height:16px;cursor:pointer">
-      <div>
-        <label for="df_short" style="font-weight:600;cursor:pointer;font-size:13px">Short Close</label>
-        <div style="font-size:11px;color:var(--text-muted)">Check this to close the PO without full delivery. No pending row will be created.</div>
-      </div>
+    <div id="df_poInfo" style="display:none;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-primary)"></div>
+    ${_sec('Delivery Items','📋')}
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="background:var(--header-bg)">
+            <th style="padding:9px 12px;text-align:left;color:var(--header-text);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border-color)">#</th>
+            <th style="padding:9px 12px;text-align:left;color:var(--header-text);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border-color)">Item Description *</th>
+            <th style="padding:9px 12px;text-align:left;color:var(--header-text);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border-color);width:120px">Qty Delivered *</th>
+            <th style="padding:9px 12px;text-align:left;color:var(--header-text);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border-color);width:150px">Status</th>
+            <th style="padding:9px 12px;text-align:left;color:var(--header-text);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border-color)">Remarks</th>
+            <th style="padding:9px 12px;border-bottom:1px solid var(--border-color);width:40px"></th>
+          </tr>
+        </thead>
+        <tbody id="del_items_body">
+          ${_delItemRow(0,'')}
+        </tbody>
+      </table>
     </div>
-    ${_fld('df_rem','Remarks','textarea',{})}`;
+    <button type="button" onclick="addDelItem()" style="background:var(--accent-dim);border:1px solid rgba(99,102,241,0.3);color:var(--accent-light);border-radius:6px;padding:7px 16px;cursor:pointer;font-size:12px;font-weight:600;margin-top:4px">+ Add Item Row</button>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;margin-top:4px">
+      <input type="checkbox" id="df_short" style="width:16px;height:16px;cursor:pointer;accent-color:#ef4444">
+      <div>
+        <label for="df_short" style="font-weight:600;cursor:pointer;font-size:13px;color:var(--text-primary)">Short Close</label>
+        <div style="font-size:11px;color:var(--text-muted)">Close this PO without full delivery — no pending row created</div>
+      </div>
+    </div>`;
 
   _openFormModal('📦 Record Delivery',body,async function(){
     const lpo=_formVal('df_lpo');
     const delNum=_formVal('df_delnum');
     const delDate=_formVal('df_date');
-    const qtyDelivered=_formNum('df_qty');
-    const qtyExp=_formNum('df_qty_exp')||0;
-    const shortClose=document.getElementById('df_short')?.checked||false;
+    const shortClose=_formChk('df_short');
+    const linkedPO=[...DATA.localPurchases,...DATA.intlPurchases].find(d=>d.poNumber===lpo);
+    const division=linkedPO?.division||'';
 
-    if(!lpo||!delNum||!delDate||qtyDelivered==null){
-      document.getElementById('formSubmitErr').textContent='LPO Reference, Delivery Number, Date and Qty are required.';
+    if(!lpo||!delNum||!delDate){
+      document.getElementById('formSubmitErr').textContent='LPO Reference, Delivery Number and Date are required.';
       document.getElementById('formSubmitErr').style.display='';return;
     }
 
-    // Get division from the linked PO
-    const linkedPO=[...DATA.localPurchases,...DATA.intlPurchases].find(d=>d.poNumber===lpo);
-    const division=linkedPO?.division||'';
+    // Collect all item rows
+    const rows=[];
+    document.querySelectorAll('[id^="del_item_"]').forEach(row=>{
+      const idx=row.dataset.idx;
+      const item=(document.getElementById('del_item_desc_'+idx)?.value||'').trim();
+      const qty=parseFloat(document.getElementById('del_item_qty_'+idx)?.value||0);
+      const status=document.getElementById('del_item_status_'+idx)?.value||'Delivered';
+      const rem=(document.getElementById('del_item_rem_'+idx)?.value||'').trim();
+      if(item&&qty>0) rows.push({item,qty,status,rem});
+    });
+
+    if(!rows.length){
+      document.getElementById('formSubmitErr').textContent='Add at least one item with a description and quantity.';
+      document.getElementById('formSubmitErr').style.display='';return;
+    }
 
     const btn=document.getElementById('formSubmitBtn');
     const errEl=document.getElementById('formSubmitErr');
     btn.disabled=true;btn.textContent='Saving…';errEl.style.display='none';
 
     try{
-      const result=await api('/data/submit-delivery','POST',{
-        data:{
+      for(const r of rows){
+        const rowData={
           'LPO Reference':lpo,
           'Delivery #':delNum,
           'Division':division,
           'Delivery Date':delDate,
-          'Items Description':linkedPO?.item||'',
-          'Qty Delivered':qtyDelivered,
-          'Remarks':_formVal('df_rem'),
-        },
-        expected_qty:qtyExp,
-        short_close:shortClose,
-      });
+          'Items Description':r.item,
+          'Qty Delivered':r.qty,
+          'Status':shortClose?'Short Close':r.status,
+          'Remarks':r.rem,
+        };
+        await api('/data/submit','POST',{sheet:'Deliveries',mode:'new',key_value:null,data:rowData});
+      }
+      // Short close: update PO stage
+      if(shortClose&&lpo){
+        await api('/data/submit','POST',{sheet:'Local Purchases',mode:'update',key_value:lpo,data:{'Current Stage':'Closed / Completed'}}).catch(()=>
+          api('/data/submit','POST',{sheet:'International Purchases',mode:'update',key_value:lpo,data:{'Current Stage':'Closed / Completed'}}).catch(()=>{})
+        );
+      }
       document.getElementById('dataFormModal')?.remove();
-      const msg=result.partial_row_created
-        ?`✅ Delivery recorded. Remaining qty (${qtyExp-qtyDelivered}) added as pending row.`
-        :'✅ Delivery recorded.';
       const t=document.createElement('div');
-      t.textContent=msg;
-      t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d9e80;color:#fff;padding:12px 24px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;max-width:90vw;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.5)';
-      document.body.appendChild(t);
-      setTimeout(()=>t.remove(),5000);
+      t.textContent=`✅ ${rows.length} delivery item${rows.length>1?'s':''} saved${shortClose?' — PO short closed':''}`;
+      t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#10b981,#059669);color:#fff;padding:12px 28px;border-radius:10px;font-size:13px;font-weight:700;z-index:9999;max-width:90vw;text-align:center;box-shadow:0 4px 24px rgba(16,185,129,0.4)';
+      document.body.appendChild(t);setTimeout(()=>t.remove(),5000);
       setTimeout(()=>loadExcelData(true),1500);
     }catch(e){
       errEl.textContent=e.message;errEl.style.display='';
@@ -2457,23 +2712,49 @@ function openDeliveryForm(){
     }
   });
 
-  // When LPO selected, fill in expected qty and show info
   setTimeout(()=>{
     const sel=document.getElementById('df_lpo');
-    if(sel) sel.addEventListener('change',()=>{
+    if(sel)sel.addEventListener('change',()=>{
       const po=[...DATA.localPurchases,...DATA.intlPurchases].find(d=>d.poNumber===sel.value);
-      if(po){
-        const expEl=document.getElementById('df_qty_exp');
-        if(expEl) expEl.value=po.poValue||'';
-        const info=document.getElementById('df_poInfo');
-        if(info){
-          info.style.display='';
-          info.innerHTML=`<b>${esc(po.item||'')}</b> — ${esc(po.division||'')} | Supplier: ${esc(po.supplier||'')} | Stage: ${esc(po.stage||'')}`;
-        }
-      }
+      const info=document.getElementById('df_poInfo');
+      if(po&&info){
+        info.style.display='';
+        info.innerHTML=`<b>${esc(po.item||'')}</b> — ${esc(po.division||'')} | Supplier: ${esc(po.supplier||'')} | Stage: ${esc(po.stage||'')}`;
+        // Pre-fill first item description
+        const firstDesc=document.getElementById('del_item_desc_0');
+        if(firstDesc&&!firstDesc.value) firstDesc.value=po.item||'';
+      }else if(info) info.style.display='none';
     });
   },100);
 }
+
+function _delItemRow(idx,itemDesc=''){
+  const tdStyle='padding:6px 8px;border-bottom:1px solid var(--border-color)';
+  return `<tr id="del_item_${idx}" data-idx="${idx}">
+    <td style="${tdStyle};color:var(--text-muted);font-size:12px">${idx+1}</td>
+    <td style="${tdStyle}"><input id="del_item_desc_${idx}" type="text" value="${escAttr(itemDesc)}" placeholder="Item description" style="${ISTYLE}"></td>
+    <td style="${tdStyle}"><input id="del_item_qty_${idx}" type="number" min="0" step="0.01" placeholder="0" style="${ISTYLE}"></td>
+    <td style="${tdStyle}"><select id="del_item_status_${idx}" style="${ISTYLE}"><option>Delivered</option><option>Partial</option><option>Pending</option><option>Short Close</option><option>Cancelled</option></select></td>
+    <td style="${tdStyle}"><input id="del_item_rem_${idx}" type="text" placeholder="Remarks" style="${ISTYLE}"></td>
+    <td style="${tdStyle};text-align:center">${idx>0?`<button type="button" onclick="removeDelItem(${idx})" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px">×</button>`:''}</td>
+  </tr>`;
+}
+
+function addDelItem(){
+  const body=document.getElementById('del_items_body');
+  if(!body)return;
+  const newIdx=_delItemCount++;
+  body.insertAdjacentHTML('beforeend',_delItemRow(newIdx,''));
+  // Update row numbers
+  body.querySelectorAll('tr').forEach((tr,i)=>{const td=tr.querySelector('td:first-child');if(td)td.textContent=i+1;});
+}
+
+function removeDelItem(idx){
+  document.getElementById('del_item_'+idx)?.remove();
+  const body=document.getElementById('del_items_body');
+  if(body)body.querySelectorAll('tr').forEach((tr,i)=>{const td=tr.querySelector('td:first-child');if(td)td.textContent=i+1;});
+}
+
 
 // ── Add "+ New" buttons to each tab ───────────────
 function _newEntryBtn(onclick){
