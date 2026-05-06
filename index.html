@@ -1482,6 +1482,7 @@ function parseExcel(arrayBuffer){
     const jobCode=r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'';
     return {
       id:'LP-'+i, division:r['Division']||'', jobCode, projectName:_pcName(jobCode),
+      date:formatDate(r['Date']),
       prNumber:r['PR Number']||'', item:r['Item Description']||'', requestedBy:r['Requested By']||'',
       dateRaised, category:r['Category']||'', priority:r['Priority']||'Normal',
       estimatedValue:num(r['Estimated Value (BHD)']), stage,
@@ -1489,6 +1490,7 @@ function parseExcel(arrayBuffer){
       poNumber:r['PO Number']||'', poValue:num(r['PO Value (BHD)']),
       paymentTerms:r['Payment Terms']||'',
       expectedDelivery:formatDate(r['Expected Delivery Date']),
+      actualDelivery:formatDate(r['Actual Delivery Date']),
       daysInStage:_days(dateRaised,stage), remarks:r['Remarks / Blockers']||'',
       cancellationReason:r['Cancellation Reason']||''
     };
@@ -1515,6 +1517,7 @@ function parseExcel(arrayBuffer){
     const jobCode=r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'';
     return {
       id:'IP-'+i, division:r['Division']||'', jobCode, projectName:_pcName(jobCode),
+      date:formatDate(r['Date']),
       prNumber:r['PR Number']||'', item:r['Item Description']||'', requestedBy:r['Requested By']||'',
       dateRaised, category:r['Category']||'', priority:r['Priority']||'Normal',
       estimatedValue:num(r['Estimated Value (USD)']), stage,
@@ -1522,7 +1525,9 @@ function parseExcel(arrayBuffer){
       poNumber:r['PO Number']||'', poValue:num(r['PO Value (USD)']),
       incoterms:r['Incoterms']||'', paymentTerms:r['Payment Terms']||'',
       paymentStatus:r['Payment Status']||'', productionStatus:r['Production Status']||'',
+      readyDate:formatDate(r['Ready Date']),
       expectedDelivery:formatDate(r['Expected Delivery Date']),
+      actualDelivery:formatDate(r['Actual Delivery Date']),
       daysInStage:_days(dateRaised,stage), remarks:r['Remarks / Blockers']||''
     };
   });
@@ -1538,6 +1543,7 @@ function parseExcel(arrayBuffer){
     const jobCode=r['Project / Job Code']!=null&&r['Project / Job Code']!==''?String(r['Project / Job Code']):'';
     return {
       id:'SH-'+i, division:r['Division']||'', jobCode, projectName:_pcName(jobCode),
+      date:formatDate(r['Date']),
       direction:r['Direction']||'Import', poRef:r['PO Reference']||'', supplier:r['Supplier / Consignee']||'',
       country:r['Country']||'', item:r['Item Description']||'', incoterms:r['Incoterms']||'',
       originPort:r['Origin Port / City']||'', destPort:r['Destination Port / City']||'',
@@ -1552,6 +1558,8 @@ function parseExcel(arrayBuffer){
       customsBroker:r['Customs Broker']||'',customsStatus:r['Customs Status']||'',
       cargoValue:num(r['Cargo Value (BHD)']),customsDuty,vat,doCharges,freight,thc,demurrage,otherCharges,totalClearing,
       daysSinceETD:_daysSinceDate(formatDate(r['ETD'])),remarks:r['Remarks / Delays']||'',
+      actualArrival:formatDate(r['Actual Arrival Date']),whDate:formatDate(r['Delivered to Warehouse Date']),
+      vatRate:num(r['VAT Rate (%)']),
       containerNumbers:(r['Container Numbers']||'').split(',').map(s=>s.trim()).filter(Boolean)
     };
   });
@@ -2756,6 +2764,18 @@ function removeDelItem(idx){
 }
 
 
+// ── Edit button helpers ────────────────────────────
+function _editLP(id){openLocalForm(DATA.localPurchases.find(d=>d.id===id));}
+function _editIP(id){openIntlForm(DATA.intlPurchases.find(d=>d.id===id));}
+function _editSH(id){openShipmentForm(DATA.shipments.find(d=>d.id===id));}
+function _editESC(id){openEscalationForm(DATA.escalations.find(d=>d.id===id));}
+
+function _editBtn(fn,id){
+  if(!currentUser)return'';
+  const canEdit=UPLOAD_TIERS.has(currentUser.tier);
+  return`<button onclick="${fn}('${escAttr(id)}')" title="${canEdit?'Edit this record':'View record (read-only — SC Officer can edit)'}" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);color:${canEdit?'var(--accent-light)':'var(--text-muted)'};border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px;line-height:1">${canEdit?'✏️':'👁️'}</button>`;
+}
+
 // ── Add "+ New" buttons to each tab ───────────────
 function _newEntryBtn(onclick){
   if(!UPLOAD_TIERS.has(currentUser?.tier))return'';
@@ -2824,7 +2844,7 @@ function renderLocal(data,sh,isCon){
   }
   const lvlL=userLevel();
   const cols=[
-    ...(UPLOAD_TIERS.has(currentUser?.tier)?[{key:'prNumber',label:'',type:'string',render:(v,r)=>v?`<button onclick="openLocalForm(${JSON.stringify({prNumber:r.prNumber,division:r.division,jobCode:r.jobCode,item:r.item,category:r.category,priority:r.priority,dateRaised:r.dateRaised,estimatedValue:r.estimatedValue,stage:r.stage,supplier:r.supplier,poNumber:r.poNumber,poValue:r.poValue,paymentTerms:r.paymentTerms,expectedDelivery:r.expectedDelivery,remarks:r.remarks}).replace(/"/g,"&quot;")})" style="background:#1a2f4622;border:1px solid #2a3f5666;color:#6ea8e8;border-radius:6px;padding:2px 7px;cursor:pointer;font-size:11px">✏️</button>`:''}]:[]),
+    {key:'id',label:'',type:'string',render:(_,r)=>_editBtn('_editLP',r.id)},
     {key:'prNumber',label:'PR #',type:'string'},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
     ...(lvlL>=3?[{key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)+_docBtn('costing',v)}]:[]),
@@ -2898,6 +2918,7 @@ function renderIntl(data,sh,isCon){
   }
   const lvlI=userLevel();
   const cols=[
+    {key:'id',label:'',type:'string',render:(_,r)=>_editBtn('_editIP',r.id)},
     {key:'prNumber',label:'PR #',type:'string'},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
     ...(lvlI>=3?[{key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)+_docBtn('costing',v)}]:[]),
@@ -2994,6 +3015,7 @@ function renderShipments(shAll,shipF,isCon){
   h+='</div>';
 
   const cols=[
+    {key:'id',label:'',type:'string',render:(_,r)=>_editBtn('_editSH',r.id)},
     {key:'poRef',label:'PO Ref',type:'string',render:(v)=>{
       if(!v) return '';
       const has=DATA.intlPurchases.some(ip=>ip.poNumber&&ip.poNumber.trim()===v.trim());
@@ -3135,6 +3157,7 @@ function renderEscalations(data,sh,isCon){
   }
 
   const cols=[
+    {key:'id',label:'',type:'string',render:(_,r)=>_editBtn('_editESC',r.id)},
     {key:'reference',label:'Ref',type:'string'},
     ...(isCon?[{key:'division',label:'Division',type:'string'}]:[]),
     {key:'jobCode',label:'Job Code',type:'string',render:v=>projBadge(v)+_docBtn('costing',v)},
